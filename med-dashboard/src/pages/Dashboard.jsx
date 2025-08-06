@@ -1,42 +1,123 @@
-//  // Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import Papa from "papaparse";
 import dayjs from "dayjs";
 import {
   Grid,
   Card,
-  CardContent,
   Typography,
   Box,
+  Tooltip,
+  Avatar,
+  Fade
 } from "@mui/material";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
-import ShowChartIcon from "@mui/icons-material/ShowChart";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import SummarizeIcon from "@mui/icons-material/Summarize";
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
+import MoneyOffCsredIcon from "@mui/icons-material/MoneyOffCsred";
+import AssessmentIcon from "@mui/icons-material/Assessment";
 
 import csvData from "../data/sample.csv?raw"; // Update path if needed
 
+const metricCards = [
+  {
+    label: "Gross Collection Rate",
+    dataKey: "gcr",
+    icon: <AssessmentIcon />,
+    borderColor: "#3e8ef7",
+    bgColor: "#f0f6fe",
+    isPercent: true,
+    showTrend: true,
+  },
+  {
+    label: "Denial Rate",
+    dataKey: "denialRate",
+    icon: <MoneyOffCsredIcon />,
+    borderColor: "#ff6f60",
+    bgColor: "#fff3ef",
+    isPercent: true,
+    showTrend: true,
+    // Note: isBadWhenUp flag is ignored now for trend color
+  },
+  {
+    label: "Total Claims",
+    dataKey: "totalClaims",
+    icon: <AssignmentTurnedInIcon />,
+    borderColor: "#73e260",
+    bgColor: "#f5fcf6",
+    showTrend: true,
+    isPercent: false,
+  },
+  {
+    label: "Total Payments",
+    dataKey: "totalPayments",
+    icon: <AttachMoneyIcon />,
+    borderColor: "#ffd760",
+    bgColor: "#fffbea",
+    isCurrency: true,
+    showTrend: true,
+    isPercent: false,
+  },
+  {
+    label: "Net Collection Rate (NCR)",
+    dataKey: "ncr",
+    icon: <TrendingUpIcon />,
+    borderColor: "#ae4ed7",
+    bgColor: "#f6edfa",
+    isPercent: true,
+    showTrend: true,
+  },
+  {
+    label: "First Pass Rate (FPR)",
+    dataKey: "fpr",
+    icon: <TrendingUpIcon />,
+    borderColor: "#00b8a9",
+    bgColor: "#e6fcfc",
+    isPercent: true,
+    showTrend: true,
+  },
+  {
+    label: "Charge Lag (days)",
+    dataKey: "chargeLagDays",
+    icon: <HourglassEmptyIcon />,
+    borderColor: "#416dea",
+    bgColor: "#eaf0fe",
+    isPercent: false,
+    showTrend: true,
+  },
+  {
+    label: "Billing Lag (days)",
+    dataKey: "billingLagDays",
+    icon: <HourglassEmptyIcon />,
+    borderColor: "#ff8650",
+    bgColor: "#fef4ef",
+    isPercent: false,
+    showTrend: true,
+  },
+  {
+    label: "Claim Charge Ratio (CCR)",
+    dataKey: "ccr",
+    icon: <AssessmentIcon />,
+    borderColor: "#a1aec6",
+    bgColor: "#f0f3fa",
+    isPercent: false,
+    showTrend: true,
+  },
+];
+
 const Dashboard = () => {
-  const [data, setData] = useState([]);
-  const [metrics, setMetrics] = useState({
-    gcr: 0,
-    denialRate: 0,
-    totalClaims: 0,
-    totalPayments: 0,
-    gcrChange: 0,
-    denialChange: 0,
-  });
+  const [metrics, setMetrics] = useState({});
 
   useEffect(() => {
     Papa.parse(csvData, {
       header: true,
       skipEmptyLines: true,
-      complete: function (results) {
+      complete: (results) => {
         const allData = results.data;
         const today = dayjs();
 
+        // Filter data into recent 30 days and previous 30-60 days
         const recentData = allData.filter((row) => {
           const date = dayjs(row.DateOfService);
           return today.diff(date, "day") <= 30;
@@ -59,322 +140,175 @@ const Dashboard = () => {
             0
           );
           const deniedClaims = dataRows.filter(
-            (row) => row.Status.toLowerCase() === "denied"
+            (row) => row.Status?.toLowerCase() === "denied"
           ).length;
+
+          const allowed = dataRows.reduce(
+            (sum, row) => sum + Number(row.AmountAllowed || 0),
+            0
+          );
+
+          const firstPass = dataRows.filter(
+            (row) => (row.FirstPassResolution || "").toLowerCase() === "yes"
+          ).length;
+
+          const totalRVUs = dataRows.reduce(
+            (sum, row) => sum + Number(row.RVUs || 0),
+            0
+          );
+
+          const totalCharges = dataRows.reduce(
+            (sum, row) => sum + Number(row.Charges || 0),
+            0
+          );
+
+          const chargeLagDays =
+            dataRows.reduce((sum, row) => {
+              const dos = dayjs(row.DateOfService);
+              const doe = dayjs(row.DateOfEntry);
+              return sum + (doe.diff(dos, "day") || 0);
+            }, 0) / (dataRows.length || 1);
+
+          const billingLagDays =
+            dataRows.reduce((sum, row) => {
+              const dos = dayjs(row.DateOfService);
+              const db = dayjs(row.DateBilled);
+              return sum + (db.diff(dos, "day") || 0);
+            }, 0) / (dataRows.length || 1);
 
           const gcr = totalBilled ? (totalPayments / totalBilled) * 100 : 0;
           const denialRate = totalClaims ? (deniedClaims / totalClaims) * 100 : 0;
+          const ncr = allowed ? (totalPayments / allowed) * 100 : 0;
+          const fpr = totalClaims ? (firstPass / totalClaims) * 100 : 0;
+          const ccr = totalRVUs ? (totalCharges / totalRVUs) : 0;
 
-          return { gcr, denialRate, totalClaims, totalPayments };
+          return {
+            gcr,
+            denialRate,
+            totalClaims,
+            totalPayments,
+            ncr,
+            fpr,
+            chargeLagDays,
+            billingLagDays,
+            ccr,
+          };
         };
 
         const recentMetrics = computeMetrics(recentData);
         const pastMetrics = computeMetrics(previousData);
 
-        setMetrics({
-          ...recentMetrics,
-          gcrChange: recentMetrics.gcr - pastMetrics.gcr,
-          denialChange: recentMetrics.denialRate - pastMetrics.denialRate,
+        // Add 'Change' values for trend display
+        const allMetrics = {};
+        Object.keys(recentMetrics).forEach((key) => {
+          allMetrics[key] = recentMetrics[key];
+          allMetrics[`${key}Change`] = recentMetrics[key] - (pastMetrics[key] ?? 0);
         });
+        setMetrics(allMetrics);
       },
     });
   }, []);
 
-  const renderTrend = (value, isPositiveGood = true) => {
-    const Icon = value >= 0 ? ArrowUpwardIcon : ArrowDownwardIcon;
-    const color = value >= 0 === isPositiveGood ? "green" : "red";
+  const renderTrend = (card) => {
+    if (!card.showTrend) return null;
+    const trendValue = metrics[`${card.dataKey}Change`];
+    if (trendValue == null) return null;
+
+    const isNegative = trendValue < 0;
+    const Icon = isNegative ? TrendingDownIcon : TrendingUpIcon;
+    // Green for increase, Red for decrease - ignores isBadWhenUp flag
+    const color = isNegative ? "#fa5656" : "#44b84a";
+    const suffix = card.isPercent ? "%" : "";
 
     return (
-      <Box display="flex" alignItems="center" color={color} mt={1}>
-        <Icon fontSize="small" />
-        <Typography variant="body2" ml={0.5}>
-          {Math.abs(value).toFixed(2)}%
-        </Typography>
-      </Box>
+      <Fade in timeout={600}>
+        <Box display="flex" alignItems="center" color={color} mt={1}>
+          <Icon sx={{ fontSize: 16 }} />
+          <Typography variant="body2" ml={0.5} fontWeight={600}>
+            {Math.abs(trendValue).toFixed(2)}
+            {suffix}
+          </Typography>
+        </Box>
+      </Fade>
     );
   };
 
-  const cardStyleWithBorder = (color, bgColor) => ({
-    backgroundColor: bgColor,
-    borderRadius: "16px",
-    borderLeft: `6px solid ${color}`,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-    height: "100%",
-    color: "#333",
+  const cardStyles = (borderColor, bgColor) => ({
+    background: `linear-gradient(145deg, ${bgColor} 80%, #fff 100%)`,
+    borderRadius: "22px",
+    borderLeft: `8px solid ${borderColor}`,
+    boxShadow: "0 4px 24px 0 rgba(60,140,240,.05), 0 1.5px 6px 0 rgba(60,140,240,.10)",
+    padding: "24px 22px 16px",
+    color: "#1f2d49",
+    minHeight: "128px",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "space-between",
+    transition: "box-shadow 0.25s",
+    willChange: "box-shadow",
+    position: "relative",
+    overflow: "visible",
+    "&:hover": {
+      boxShadow: "0 6px 40px 0 rgba(60,140,240,.18), 0 4px 15px 0 rgba(60,140,240,.21)",
+      zIndex: 2,
+    },
   });
 
+  const formatValue = (card, value) => {
+    if (card.isCurrency) return "$" + Number(value).toLocaleString();
+    if (card.isPercent) return value != null ? Number(value).toFixed(2) + "%" : "--";
+    if (typeof value === "number") return Number(value).toFixed(2).replace(/\.00$/, "");
+    return value ?? "--";
+  };
+
   return (
-    <Box p={4} sx={{ backgroundColor: "#f0f2f5", minHeight: "100vh" }}>
-      <Typography variant="h4" gutterBottom>
+    <Box p={{ xs: 1, sm: 2, md: 4 }} sx={{ backgroundColor: "#f8fbff", minHeight: "80vh" }}>
+      <Typography
+        variant="h4"
+        fontWeight={700}
+        mb={2}
+        sx={{
+          background: "linear-gradient(85deg,#337ff1 43%,#19cbb8 99%)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          mb: 4,
+        }}
+      >
         Medical Billing Dashboard
       </Typography>
-      <Grid container spacing={2} alignItems="stretch">
-        <Grid item xs={12} sm={6} md={3} lg={3} xl={3}>
-          <Card sx={cardStyleWithBorder("#2196f3", "#e3f2fd")}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle1">Gross Collection Rate</Typography>
-                <ShowChartIcon color="primary" />
-              </Box>
-              <Typography variant="h4">{metrics.gcr.toFixed(2)}%</Typography>
-              {renderTrend(metrics.gcrChange)}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3} lg={3} xl={3}>
-          <Card sx={cardStyleWithBorder("#f44336", "#ffebee")}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle1">Denial Rate</Typography>
-                <ErrorOutlineIcon color="error" />
-              </Box>
-              <Typography variant="h4">{metrics.denialRate.toFixed(2)}%</Typography>
-              {renderTrend(metrics.denialChange, false)}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3} lg={3} xl={3}>
-          <Card sx={cardStyleWithBorder("#4caf50", "#e8f5e9")}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle1">Total Claims</Typography>
-                <SummarizeIcon color="success" />
-              </Box>
-              <Typography variant="h4">{metrics.totalClaims}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3} lg={3} xl={3}>
-          <Card sx={cardStyleWithBorder("#ff9800", "#fff3e0")}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle1">Total Payments</Typography>
-                <AttachMoneyIcon sx={{ color: "#ff9800" }} />
-              </Box>
-              <Typography variant="h4">${metrics.totalPayments}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      <Grid container spacing={{ xs: 2, md: 3 }} alignItems="stretch">
+        {metricCards.map((card) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={card.dataKey}>
+            <Tooltip title={card.tooltip} placement="top" arrow>
+              <Card sx={cardStyles(card.borderColor, card.bgColor)}>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Avatar
+                    sx={{
+                      bgcolor: card.borderColor,
+                      color: "#fff",
+                      boxShadow: "0 0 4px #aaa",
+                      width: 40,
+                      height: 40,
+                    }}
+                  >
+                    {card.icon}
+                  </Avatar>
+                  <Typography variant="subtitle2" fontWeight={600} style={{ fontSize: 16 }}>
+                    {card.label}
+                  </Typography>
+                </Box>
+                <Box flexGrow={1} pt={2} display="flex" alignItems="end" minHeight={52}>
+                  <Typography variant="h4" fontWeight={700} sx={{ fontSize: 36 }}>
+                    {formatValue(card, metrics[card.dataKey])}
+                  </Typography>
+                </Box>
+                {renderTrend(card)}
+              </Card>
+            </Tooltip>
+          </Grid>
+        ))}
       </Grid>
     </Box>
   );
 };
 
 export default Dashboard;
-
-// Dashboard.jsx
-// // Dashboard.jsx
-// import React, { useEffect, useState } from "react";
-// import Papa from "papaparse";
-// import dayjs from "dayjs";
-// import {
-//   Grid,
-//   Card,
-//   CardContent,
-//   Typography,
-//   Box,
-// } from "@mui/material";
-// import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-// import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-// import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
-// import ShowChartIcon from "@mui/icons-material/ShowChart";
-// import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-// import SummarizeIcon from "@mui/icons-material/Summarize";
-// import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
-//
-// import csvData from "../data/sample.csv?raw"; // Update path if needed
-//
-// const Dashboard = () => {
-//   const [data, setData] = useState([]);
-//   const [metrics, setMetrics] = useState({
-//     gcr: 0,
-//     denialRate: 0,
-//     totalClaims: 0,
-//     totalPayments: 0,
-//     gcrChange: 0,
-//     denialChange: 0,
-//   });
-//   const [genderData, setGenderData] = useState([]);
-//
-//   useEffect(() => {
-//     Papa.parse(csvData, {
-//       header: true,
-//       skipEmptyLines: true,
-//       complete: function (results) {
-//         const allData = results.data;
-//         setData(allData);
-//         const today = dayjs();
-//
-//         const recentData = allData.filter((row) => {
-//           const date = dayjs(row.DateOfService);
-//           return today.diff(date, "day") <= 30;
-//         });
-//
-//         const previousData = allData.filter((row) => {
-//           const date = dayjs(row.DateOfService);
-//           const diff = today.diff(date, "day");
-//           return diff > 30 && diff <= 60;
-//         });
-//
-//         const computeMetrics = (dataRows) => {
-//           const totalClaims = dataRows.length;
-//           const totalPayments = dataRows.reduce(
-//             (sum, row) => sum + Number(row.AmountPaid || 0),
-//             0
-//           );
-//           const totalBilled = dataRows.reduce(
-//             (sum, row) => sum + Number(row.AmountBilled || 0),
-//             0
-//           );
-//           const deniedClaims = dataRows.filter(
-//             (row) => row.Status.toLowerCase() === "denied"
-//           ).length;
-//
-//           const gcr = totalBilled ? (totalPayments / totalBilled) * 100 : 0;
-//           const denialRate = totalClaims ? (deniedClaims / totalClaims) * 100 : 0;
-//
-//           return { gcr, denialRate, totalClaims, totalPayments };
-//         };
-//
-//         const recentMetrics = computeMetrics(recentData);
-//         const pastMetrics = computeMetrics(previousData);
-//
-//         setMetrics({
-//           ...recentMetrics,
-//           gcrChange: recentMetrics.gcr - pastMetrics.gcr,
-//           denialChange: recentMetrics.denialRate - pastMetrics.denialRate,
-//         });
-//
-//         const maleCount = allData.filter(row => row.Gender?.toLowerCase() === 'male').length;
-//         const femaleCount = allData.filter(row => row.Gender?.toLowerCase() === 'female').length;
-//
-//         setGenderData([
-//           { name: "Male", value: maleCount },
-//           { name: "Female", value: femaleCount }
-//         ]);
-//       },
-//     });
-//   }, []);
-//
-//   const renderTrend = (value, isPositiveGood = true) => {
-//     const Icon = value >= 0 ? ArrowUpwardIcon : ArrowDownwardIcon;
-//     const color = value >= 0 === isPositiveGood ? "green" : "red";
-//
-//     return (
-//       <Box display="flex" alignItems="center" color={color} mt={1}>
-//         <Icon fontSize="small" />
-//         <Typography variant="body2" ml={0.5}>
-//           {Math.abs(value).toFixed(2)}%
-//         </Typography>
-//       </Box>
-//     );
-//   };
-//
-//   const cardStyleWithBorder = (color, bgColor) => ({
-//     backgroundColor: bgColor,
-//     borderRadius: "20px",
-//     borderLeft: `8px solid ${color}`,
-//     boxShadow: "0 6px 16px rgba(0, 0, 0, 0.1)",
-//     height:"100px",
-//     padding: "28px",
-//     color: "#333",
-//     display: "flex",
-//     flexDirection: "column",
-//     justifyContent: "space-between",
-//   });
-//
-//   const COLORS = ["#42A5F5", "#EC407A"];
-//
-//   return (
-//     <Box p={4} sx={{ backgroundColor: "#f0f2f5", minHeight: "100vh" }}>
-//       <Typography variant="h4" gutterBottom>
-//         Medical Billing Dashboard
-//       </Typography>
-//       <Grid container spacing={3} alignItems="stretch">
-//         <Grid item xs={12} sm={6} md={6} lg={3} xl={3}>
-//           <Card sx={cardStyleWithBorder("#2196f3", "#e3f2fd")}>
-//             <CardContent>
-//               <Box display="flex" alignItems="center" justifyContent="space-between">
-//                 <Typography variant="subtitle1">Gross Collection Rate</Typography>
-//                 <ShowChartIcon color="primary" />
-//               </Box>
-//               <Typography variant="h3">{metrics.gcr.toFixed(2)}%</Typography>
-//               {renderTrend(metrics.gcrChange)}
-//             </CardContent>
-//           </Card>
-//         </Grid>
-//
-//         <Grid item xs={12} sm={6} md={6} lg={3} xl={3}>
-//           <Card sx={cardStyleWithBorder("#f44336", "#ffebee")}>
-//             <CardContent>
-//               <Box display="flex" alignItems="center" justifyContent="space-between">
-//                 <Typography variant="subtitle1">Denial Rate</Typography>
-//                 <ErrorOutlineIcon color="error" />
-//               </Box>
-//               <Typography variant="h3">{metrics.denialRate.toFixed(2)}%</Typography>
-//               {renderTrend(metrics.denialChange, false)}
-//             </CardContent>
-//           </Card>
-//         </Grid>
-//
-//         <Grid item xs={12} sm={6} md={6} lg={3} xl={3}>
-//           <Card sx={cardStyleWithBorder("#4caf50", "#e8f5e9")}>
-//             <CardContent>
-//               <Box display="flex" alignItems="center" justifyContent="space-between">
-//                 <Typography variant="subtitle1">Total Claims</Typography>
-//                 <SummarizeIcon color="success" />
-//               </Box>
-//               <Typography variant="h3">{metrics.totalClaims}</Typography>
-//             </CardContent>
-//           </Card>
-//         </Grid>
-//
-//         <Grid item xs={12} sm={6} md={6} lg={3} xl={3}>
-//           <Card sx={cardStyleWithBorder("#ff9800", "#fff3e0")}>
-//             <CardContent>
-//               <Box display="flex" alignItems="center" justifyContent="space-between">
-//                 <Typography variant="subtitle1">Total Payments</Typography>
-//                 <AttachMoneyIcon sx={{ color: "#ff9800" }} />
-//               </Box>
-//               <Typography variant="h3">${metrics.totalPayments}</Typography>
-//             </CardContent>
-//           </Card>
-//         </Grid>
-//
-//         <Grid item xs={12} sm={12} md={6} lg={4} xl={3}>
-//           <Card sx={{ height: "100%", padding: "20px" }}>
-//             <Typography variant="h6" gutterBottom>
-//               Gender Distribution
-//             </Typography>
-//             <PieChart width={300} height={250}>
-//               <Pie
-//                 data={genderData}
-//                 dataKey="value"
-//                 nameKey="name"
-//                 cx="50%"
-//                 cy="50%"
-//                 outerRadius={80}
-//                 label
-//               >
-//                 {genderData.map((entry, index) => (
-//                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-//                 ))}
-//               </Pie>
-//               <Tooltip />
-//               <Legend />
-//             </PieChart>
-//           </Card>
-//         </Grid>
-//       </Grid>
-//     </Box>
-//   );
-// };
-//
-// export default Dashboard;
-
