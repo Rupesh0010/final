@@ -18,7 +18,7 @@ import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import MoneyOffCsredIcon from "@mui/icons-material/MoneyOffCsred";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 
-import csvData from "../data/sample.csv?raw"; // Update path if needed
+import csvData from "../data/sample.csv?raw";
 
 const metricCards = [
   {
@@ -38,7 +38,6 @@ const metricCards = [
     bgColor: "#fff3ef",
     isPercent: true,
     showTrend: true,
-    // Note: isBadWhenUp flag is ignored now for trend color
   },
   {
     label: "Total Claims",
@@ -46,8 +45,8 @@ const metricCards = [
     icon: <AssignmentTurnedInIcon />,
     borderColor: "#73e260",
     bgColor: "#f5fcf6",
-    showTrend: true,
     isPercent: false,
+    showTrend: true,
   },
   {
     label: "Total Payments",
@@ -101,13 +100,32 @@ const metricCards = [
     icon: <AssessmentIcon />,
     borderColor: "#a1aec6",
     bgColor: "#f0f3fa",
-    isPercent: false,
+    isPercent: false, // Ratio, not percent
+    showTrend: true,
+  },
+  {
+    label: "Accounts Receivable (AR)",
+    dataKey: "ar",
+    icon: <AttachMoneyIcon />,
+    borderColor: "#6a5acd",
+    bgColor: "#efecff",
+    isCurrency: true,
+    showTrend: true,
+  },
+  {
+    label: "AR > 90 days",
+    dataKey: "ar90",
+    icon: <AttachMoneyIcon />,
+    borderColor: "#d9534f",
+    bgColor: "#fff0f0",
+    isCurrency: true,
     showTrend: true,
   },
 ];
 
 const Dashboard = () => {
   const [metrics, setMetrics] = useState({});
+  const today = dayjs();
 
   useEffect(() => {
     Papa.parse(csvData, {
@@ -115,72 +133,63 @@ const Dashboard = () => {
       skipEmptyLines: true,
       complete: (results) => {
         const allData = results.data;
-        const today = dayjs();
 
-        // Filter data into recent 30 days and previous 30-60 days
-        const recentData = allData.filter((row) => {
-          const date = dayjs(row.DateOfService);
-          return today.diff(date, "day") <= 30;
+        // Filter recent 30 days and previous 31-60 days data by DateOfService
+        const recentData = allData.filter(row => {
+          const dos = dayjs(row.DateOfService);
+          return dos.isValid() && today.diff(dos, "day") <= 30;
         });
 
-        const previousData = allData.filter((row) => {
-          const date = dayjs(row.DateOfService);
-          const diff = today.diff(date, "day");
-          return diff > 30 && diff <= 60;
+        const previousData = allData.filter(row => {
+          const dos = dayjs(row.DateOfService);
+          const diff = today.diff(dos, "day");
+          return dos.isValid() && diff > 30 && diff <= 60;
         });
 
         const computeMetrics = (dataRows) => {
           const totalClaims = dataRows.length;
-          const totalPayments = dataRows.reduce(
-            (sum, row) => sum + Number(row.AmountPaid || 0),
-            0
-          );
-          const totalBilled = dataRows.reduce(
-            (sum, row) => sum + Number(row.AmountBilled || 0),
-            0
-          );
-          const deniedClaims = dataRows.filter(
-            (row) => row.Status?.toLowerCase() === "denied"
-          ).length;
+          const totalPayments = dataRows.reduce((sum, row) => sum + Number(row.AmountPaid || 0), 0);
+          const totalBilled = dataRows.reduce((sum, row) => sum + Number(row.AmountBilled || 0), 0);
+          const deniedClaims = dataRows.filter(row => (row.Status?.toLowerCase() === "denied")).length;
+          const allowed = dataRows.reduce((sum, row) => sum + Number(row.AmountAllowed || 0), 0);
+          const firstPass = dataRows.filter(row => (row.FirstPassResolution || "").toLowerCase() === "yes").length;
+          const totalRVUs = dataRows.reduce((sum, row) => sum + Number(row.RVUs || 0), 0);
+          const totalCharges = dataRows.reduce((sum, row) => sum + Number(row.Charges || 0), 0);
 
-          const allowed = dataRows.reduce(
-            (sum, row) => sum + Number(row.AmountAllowed || 0),
-            0
-          );
+          // Carefully handle date diffs, protecting against invalid dates or negative diffs
+          const chargeLagDays = dataRows.reduce((sum, row) => {
+            const dos = dayjs(row.DateOfService);
+            const doe = dayjs(row.DateOfEntry);
+            let diff = doe.isValid() && dos.isValid() ? doe.diff(dos, "day") : 0;
+            if (diff < 0) diff = 0;
+            return sum + diff;
+          }, 0) / (dataRows.length || 1);
 
-          const firstPass = dataRows.filter(
-            (row) => (row.FirstPassResolution || "").toLowerCase() === "yes"
-          ).length;
-
-          const totalRVUs = dataRows.reduce(
-            (sum, row) => sum + Number(row.RVUs || 0),
-            0
-          );
-
-          const totalCharges = dataRows.reduce(
-            (sum, row) => sum + Number(row.Charges || 0),
-            0
-          );
-
-          const chargeLagDays =
-            dataRows.reduce((sum, row) => {
-              const dos = dayjs(row.DateOfService);
-              const doe = dayjs(row.DateOfEntry);
-              return sum + (doe.diff(dos, "day") || 0);
-            }, 0) / (dataRows.length || 1);
-
-          const billingLagDays =
-            dataRows.reduce((sum, row) => {
-              const dos = dayjs(row.DateOfService);
-              const db = dayjs(row.DateBilled);
-              return sum + (db.diff(dos, "day") || 0);
-            }, 0) / (dataRows.length || 1);
+          const billingLagDays = dataRows.reduce((sum, row) => {
+            const dos = dayjs(row.DateOfService);
+            const db = dayjs(row.DateBilled);
+            let diff = db.isValid() && dos.isValid() ? db.diff(dos, "day") : 0;
+            if (diff < 0) diff = 0;
+            return sum + diff;
+          }, 0) / (dataRows.length || 1);
 
           const gcr = totalBilled ? (totalPayments / totalBilled) * 100 : 0;
           const denialRate = totalClaims ? (deniedClaims / totalClaims) * 100 : 0;
           const ncr = allowed ? (totalPayments / allowed) * 100 : 0;
           const fpr = totalClaims ? (firstPass / totalClaims) * 100 : 0;
           const ccr = totalRVUs ? (totalCharges / totalRVUs) : 0;
+
+          const ar = totalBilled - totalPayments;
+
+          // AR > 90 days: unpaid amounts on claims serviced more than 90 days ago
+          const ar90 = dataRows.reduce((sum, row) => {
+            const dos = dayjs(row.DateOfService);
+            const unpaid = Number(row.AmountBilled || 0) - Number(row.AmountPaid || 0);
+            if (dos.isValid() && today.diff(dos, "day") > 90 && unpaid > 0) {
+              return sum + unpaid;
+            }
+            return sum;
+          }, 0);
 
           return {
             gcr,
@@ -192,22 +201,25 @@ const Dashboard = () => {
             chargeLagDays,
             billingLagDays,
             ccr,
+            ar,
+            ar90,
           };
         };
 
         const recentMetrics = computeMetrics(recentData);
         const pastMetrics = computeMetrics(previousData);
 
-        // Add 'Change' values for trend display
+        // Compute change trends: recent - previous
         const allMetrics = {};
-        Object.keys(recentMetrics).forEach((key) => {
+        Object.keys(recentMetrics).forEach(key => {
           allMetrics[key] = recentMetrics[key];
           allMetrics[`${key}Change`] = recentMetrics[key] - (pastMetrics[key] ?? 0);
         });
+
         setMetrics(allMetrics);
       },
     });
-  }, []);
+  }, [today]);
 
   const renderTrend = (card) => {
     if (!card.showTrend) return null;
@@ -216,10 +228,8 @@ const Dashboard = () => {
 
     const isNegative = trendValue < 0;
     const Icon = isNegative ? TrendingDownIcon : TrendingUpIcon;
-    // Green for increase, Red for decrease - ignores isBadWhenUp flag
-    const color = isNegative ? "#fa5656" : "#44b84a";
+    const color = isNegative ? "#fa5656" : "#44b84a"; // red for down, green for up
     const suffix = card.isPercent ? "%" : "";
-
     return (
       <Fade in timeout={600}>
         <Box display="flex" alignItems="center" color={color} mt={1}>
@@ -244,7 +254,6 @@ const Dashboard = () => {
     display: "flex",
     flexDirection: "column",
     transition: "box-shadow 0.25s",
-    willChange: "box-shadow",
     position: "relative",
     overflow: "visible",
     "&:hover": {
@@ -278,7 +287,7 @@ const Dashboard = () => {
       <Grid container spacing={{ xs: 2, md: 3 }} alignItems="stretch">
         {metricCards.map((card) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={card.dataKey}>
-            <Tooltip title={card.tooltip} placement="top" arrow>
+            <Tooltip title={card.tooltip || ""} placement="top" arrow>
               <Card sx={cardStyles(card.borderColor, card.bgColor)}>
                 <Box display="flex" alignItems="center" gap={2}>
                   <Avatar
