@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ For navigation
 import Papa from "papaparse";
 import dayjs from "dayjs";
 import {
-  Grid,
-  Card,
-  Typography,
-  Box,
-  Tooltip,
-  Avatar,
-  Fade
+  Grid, Card, Typography, Box, Tooltip, Avatar, Fade,
+  IconButton, Badge, Divider, Drawer, List, ListItem,
+  ListItemIcon, ListItemText, AppBar, Toolbar, Button,
+  TextField, MenuItem
 } from "@mui/material";
+
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
@@ -17,250 +16,107 @@ import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import MoneyOffCsredIcon from "@mui/icons-material/MoneyOffCsred";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import MenuIcon from "@mui/icons-material/Menu";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import BarChartIcon from "@mui/icons-material/BarChart";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import csvData from "../data/sample.csv?raw";
 
 const metricCards = [
-  {
-    label: "Gross Collection Rate",
-    dataKey: "gcr",
-    icon: <AssessmentIcon />,
-    borderColor: "#3e8ef7",
-    bgColor: "#f0f6fe",
-    isPercent: true,
-    showTrend: true,
-  },
-  {
-    label: "Denial Rate",
-    dataKey: "denialRate",
-    icon: <MoneyOffCsredIcon />,
-    borderColor: "#ff6f60",
-    bgColor: "#fff3ef",
-    isPercent: true,
-    showTrend: true,
-  },
-  {
-    label: "Total Claims",
-    dataKey: "totalClaims",
-    icon: <AssignmentTurnedInIcon />,
-    borderColor: "#73e260",
-    bgColor: "#f5fcf6",
-    isPercent: false,
-    showTrend: true,
-  },
-  {
-    label: "Total Payments",
-    dataKey: "totalPayments",
-    icon: <AttachMoneyIcon />,
-    borderColor: "#ffd760",
-    bgColor: "#fffbea",
-    isCurrency: true,
-    showTrend: true,
-    isPercent: false,
-  },
-  {
-    label: "Net Collection Rate (NCR)",
-    dataKey: "ncr",
-    icon: <TrendingUpIcon />,
-    borderColor: "#ae4ed7",
-    bgColor: "#f6edfa",
-    isPercent: true,
-    showTrend: true,
-  },
-  {
-    label: "First Pass Rate (FPR)",
-    dataKey: "fpr",
-    icon: <TrendingUpIcon />,
-    borderColor: "#00b8a9",
-    bgColor: "#e6fcfc",
-    isPercent: true,
-    showTrend: true,
-  },
-  {
-    label: "Charge Lag (days)",
-    dataKey: "chargeLagDays",
-    icon: <HourglassEmptyIcon />,
-    borderColor: "#416dea",
-    bgColor: "#eaf0fe",
-    isPercent: false,
-    showTrend: true,
-  },
-  {
-    label: "Billing Lag (days)",
-    dataKey: "billingLagDays",
-    icon: <HourglassEmptyIcon />,
-    borderColor: "#ff8650",
-    bgColor: "#fef4ef",
-    isPercent: false,
-    showTrend: true,
-  },
-  {
-    label: "Claim Charge Ratio (CCR)",
-    dataKey: "ccr",
-    icon: <AssessmentIcon />,
-    borderColor: "#a1aec6",
-    bgColor: "#f0f3fa",
-    isPercent: false, // Ratio, not percent
-    showTrend: true,
-  },
-  {
-    label: "Accounts Receivable (AR)",
-    dataKey: "ar",
-    icon: <AttachMoneyIcon />,
-    borderColor: "#6a5acd",
-    bgColor: "#efecff",
-    isCurrency: true,
-    showTrend: true,
-  },
-  {
-    label: "AR > 90 days",
-    dataKey: "ar90",
-    icon: <AttachMoneyIcon />,
-    borderColor: "#d9534f",
-    bgColor: "#fff0f0",
-    isCurrency: true,
-    showTrend: true,
-  },
+  { label: "Gross Collection Rate", dataKey: "gcr", icon: <AssessmentIcon />, color: "#3e8ef7", isPercent: true, showTrend: true },
+  { label: "Denial Rate", dataKey: "denialRate", icon: <MoneyOffCsredIcon />, color: "#ff6f60", isPercent: true, showTrend: true },
+  { label: "Total Claims", dataKey: "totalClaims", icon: <AssignmentTurnedInIcon />, color: "#73e260", isPercent: false, showTrend: true },
+  { label: "Total Payments", dataKey: "totalPayments", icon: <AttachMoneyIcon />, color: "#ffd760", isCurrency: true, showTrend: true },
+  { label: "Net Collection Rate (NCR)", dataKey: "ncr", icon: <TrendingUpIcon />, color: "#ae4ed7", isPercent: true, showTrend: true },
+  { label: "First Pass Rate (FPR)", dataKey: "fpr", icon: <TrendingUpIcon />, color: "#00b8a9", isPercent: true, showTrend: true },
+  { label: "Charge Lag (days)", dataKey: "chargeLagDays", icon: <HourglassEmptyIcon />, color: "#416dea", isPercent: false, showTrend: true },
+  { label: "Billing Lag (days)", dataKey: "billingLagDays", icon: <HourglassEmptyIcon />, color: "#ff8650", isPercent: false, showTrend: true },
+  { label: "Claim Charge Ratio (CCR)", dataKey: "ccr", icon: <AssessmentIcon />, color: "#a1aec6", isPercent: true, showTrend: true },
+  { label: "Accounts Receivable (AR)", dataKey: "ar", icon: <AttachMoneyIcon />, color: "#6a5acd", isCurrency: true, showTrend: true },
+  { label: "AR > 90 days", dataKey: "ar90", icon: <AttachMoneyIcon />, color: "#d9534f", isCurrency: true, showTrend: true },
 ];
+
+// Helpers
+const initMetrics = () => ({
+  totalClaims: 0, totalPayments: 0, totalBilled: 0, totalAllowed: 0,
+  deniedClaims: 0, firstPass: 0, chargeLagDays: 0, billingLagDays: 0, ar90: 0
+});
+
+const finalizeMetrics = (m) => {
+  const gcr = m.totalBilled ? (m.totalPayments / m.totalBilled) * 100 : 0;
+  const denialRate = m.totalClaims ? (m.deniedClaims / m.totalClaims) * 100 : 0;
+  const ncr = m.totalAllowed ? (m.totalPayments / m.totalAllowed) * 100 : 0;
+  const fpr = m.totalClaims ? (m.firstPass / m.totalClaims) * 100 : 0;
+  const ccr = m.totalAllowed ? Math.min((m.totalPayments / m.totalAllowed) * 100, 100) : 0;
+  const ar = m.totalBilled - m.totalPayments;
+  return {
+    gcr, denialRate, totalClaims: m.totalClaims, totalPayments: m.totalPayments,
+    ncr, fpr,
+    chargeLagDays: m.totalClaims ? m.chargeLagDays / m.totalClaims : 0,
+    billingLagDays: m.totalClaims ? m.billingLagDays / m.totalClaims : 0,
+    ccr, ar, ar90: m.ar90
+  };
+};
 
 const Dashboard = () => {
   const [metrics, setMetrics] = useState({});
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [filters, setFilters] = useState({ dateRange: "30", doctor: "" });
   const today = dayjs();
+  const navigate = useNavigate(); // ✅ For GCR redirect
 
+  // Optimized data parsing
   useEffect(() => {
     Papa.parse(csvData, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const allData = results.data;
+      worker: true,
+      complete: ({ data }) => {
+        const daysLimit = parseInt(filters.dateRange, 10);
+        let recent = initMetrics();
+        let past = initMetrics();
 
-        // Filter recent 30 days and previous 31-60 days data by DateOfService
-        const recentData = allData.filter(row => {
+        for (let row of data) {
           const dos = dayjs(row.DateOfService);
-          return dos.isValid() && today.diff(dos, "day") <= 30;
-        });
-
-        const previousData = allData.filter(row => {
-          const dos = dayjs(row.DateOfService);
+          if (!dos.isValid()) continue;
           const diff = today.diff(dos, "day");
-          return dos.isValid() && diff > 30 && diff <= 60;
-        });
+          let target = null;
+          if (diff <= daysLimit) target = recent;
+          else if (diff <= daysLimit * 2) target = past;
 
-        const computeMetrics = (dataRows) => {
-          const totalClaims = dataRows.length;
-          const totalPayments = dataRows.reduce((sum, row) => sum + Number(row.AmountPaid || 0), 0);
-          const totalBilled = dataRows.reduce((sum, row) => sum + Number(row.AmountBilled || 0), 0);
-          const deniedClaims = dataRows.filter(row => (row.Status?.toLowerCase() === "denied")).length;
-          const allowed = dataRows.reduce((sum, row) => sum + Number(row.AmountAllowed || 0), 0);
-          const firstPass = dataRows.filter(row => (row.FirstPassResolution || "").toLowerCase() === "yes").length;
-          const totalRVUs = dataRows.reduce((sum, row) => sum + Number(row.RVUs || 0), 0);
-          const totalCharges = dataRows.reduce((sum, row) => sum + Number(row.Charges || 0), 0);
+          if (target) {
+            const paid = +row.AmountPaid || 0;
+            const billed = +row.AmountBilled || 0;
+            const allowed = +row.AmountAllowed || 0;
+            const denied = row.Status?.toLowerCase() === "denied";
+            const firstPass = (row.FirstPassResolution || "").toLowerCase() === "yes";
 
-          // Carefully handle date diffs, protecting against invalid dates or negative diffs
-          const chargeLagDays = dataRows.reduce((sum, row) => {
-            const dos = dayjs(row.DateOfService);
-            const doe = dayjs(row.DateOfEntry);
-            let diff = doe.isValid() && dos.isValid() ? doe.diff(dos, "day") : 0;
-            if (diff < 0) diff = 0;
-            return sum + diff;
-          }, 0) / (dataRows.length || 1);
+            target.totalClaims++;
+            target.totalPayments += paid;
+            target.totalBilled += billed;
+            target.totalAllowed += allowed;
+            if (denied) target.deniedClaims++;
+            if (firstPass) target.firstPass++;
+            target.chargeLagDays += Math.max(dayjs(row.DateOfEntry).diff(dos, "day") || 0, 0);
+            target.billingLagDays += Math.max(dayjs(row.DateBilled).diff(dos, "day") || 0, 0);
+            if (diff > 90 && billed - paid > 0) target.ar90 += billed - paid;
+          }
+        }
 
-          const billingLagDays = dataRows.reduce((sum, row) => {
-            const dos = dayjs(row.DateOfService);
-            const db = dayjs(row.DateBilled);
-            let diff = db.isValid() && dos.isValid() ? db.diff(dos, "day") : 0;
-            if (diff < 0) diff = 0;
-            return sum + diff;
-          }, 0) / (dataRows.length || 1);
-
-          const gcr = totalBilled ? (totalPayments / totalBilled) * 100 : 0;
-          const denialRate = totalClaims ? (deniedClaims / totalClaims) * 100 : 0;
-          const ncr = allowed ? (totalPayments / allowed) * 100 : 0;
-          const fpr = totalClaims ? (firstPass / totalClaims) * 100 : 0;
-          const ccr = totalRVUs ? (totalCharges / totalRVUs) : 0;
-
-          const ar = totalBilled - totalPayments;
-
-          // AR > 90 days: unpaid amounts on claims serviced more than 90 days ago
-          const ar90 = dataRows.reduce((sum, row) => {
-            const dos = dayjs(row.DateOfService);
-            const unpaid = Number(row.AmountBilled || 0) - Number(row.AmountPaid || 0);
-            if (dos.isValid() && today.diff(dos, "day") > 90 && unpaid > 0) {
-              return sum + unpaid;
-            }
-            return sum;
-          }, 0);
-
-          return {
-            gcr,
-            denialRate,
-            totalClaims,
-            totalPayments,
-            ncr,
-            fpr,
-            chargeLagDays,
-            billingLagDays,
-            ccr,
-            ar,
-            ar90,
-          };
-        };
-
-        const recentMetrics = computeMetrics(recentData);
-        const pastMetrics = computeMetrics(previousData);
-
-        // Compute change trends: recent - previous
+        const recFinal = finalizeMetrics(recent);
+        const pastFinal = finalizeMetrics(past);
         const allMetrics = {};
-        Object.keys(recentMetrics).forEach(key => {
-          allMetrics[key] = recentMetrics[key];
-          allMetrics[`${key}Change`] = recentMetrics[key] - (pastMetrics[key] ?? 0);
-        });
-
+        for (let k in recFinal) {
+          allMetrics[k] = recFinal[k];
+          allMetrics[`${k}Change`] = recFinal[k] - (pastFinal[k] ?? 0);
+        }
         setMetrics(allMetrics);
-      },
+      }
     });
-  }, [today]);
-
-  const renderTrend = (card) => {
-    if (!card.showTrend) return null;
-    const trendValue = metrics[`${card.dataKey}Change`];
-    if (trendValue == null) return null;
-
-    const isNegative = trendValue < 0;
-    const Icon = isNegative ? TrendingDownIcon : TrendingUpIcon;
-    const color = isNegative ? "#fa5656" : "#44b84a"; // red for down, green for up
-    const suffix = card.isPercent ? "%" : "";
-    return (
-      <Fade in timeout={600}>
-        <Box display="flex" alignItems="center" color={color} mt={1}>
-          <Icon sx={{ fontSize: 16 }} />
-          <Typography variant="body2" ml={0.5} fontWeight={600}>
-            {Math.abs(trendValue).toFixed(2)}
-            {suffix}
-          </Typography>
-        </Box>
-      </Fade>
-    );
-  };
-
-  const cardStyles = (borderColor, bgColor) => ({
-    background: `linear-gradient(145deg, ${bgColor} 80%, #fff 100%)`,
-    borderRadius: "22px",
-    borderLeft: `8px solid ${borderColor}`,
-    boxShadow: "0 4px 24px 0 rgba(60,140,240,.05), 0 1.5px 6px 0 rgba(60,140,240,.10)",
-    padding: "24px 22px 16px",
-    color: "#1f2d49",
-    minHeight: "128px",
-    display: "flex",
-    flexDirection: "column",
-    transition: "box-shadow 0.25s",
-    position: "relative",
-    overflow: "visible",
-    "&:hover": {
-      boxShadow: "0 6px 40px 0 rgba(60,140,240,.18), 0 4px 15px 0 rgba(60,140,240,.21)",
-      zIndex: 2,
-    },
-  });
+  }, [filters, today]);
 
   const formatValue = (card, value) => {
     if (card.isCurrency) return "$" + Number(value).toLocaleString();
@@ -269,53 +125,108 @@ const Dashboard = () => {
     return value ?? "--";
   };
 
+  const renderTrend = (card) => {
+    const change = metrics[`${card.dataKey}Change`];
+    if (change == null) return null;
+    const Icon = change < 0 ? TrendingDownIcon : TrendingUpIcon;
+    const color = change < 0 ? "#fa5656" : "#44b84a";
+    const suffix = card.isPercent ? "%" : "";
+    return (
+      <Fade in timeout={600}>
+        <Box display="flex" alignItems="center" color={color} mt={0.5}>
+          <Icon sx={{ fontSize: 16 }} />
+          <Typography variant="body2" ml={0.5} fontWeight={600}>
+            {Math.abs(change).toFixed(2)}{suffix}
+          </Typography>
+        </Box>
+      </Fade>
+    );
+  };
+
   return (
-    <Box p={{ xs: 1, sm: 2, md: 4 }} sx={{ backgroundColor: "#f8fbff", minHeight: "80vh" }}>
-      <Typography
-        variant="h4"
-        fontWeight={700}
-        mb={2}
-        sx={{
-          background: "linear-gradient(85deg,#337ff1 43%,#19cbb8 99%)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          mb: 4,
-        }}
-      >
-        Medical Billing Dashboard
-      </Typography>
-      <Grid container spacing={{ xs: 2, md: 3 }} alignItems="stretch">
-        {metricCards.map((card) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={card.dataKey}>
-            <Tooltip title={card.tooltip || ""} placement="top" arrow>
-              <Card sx={cardStyles(card.borderColor, card.bgColor)}>
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar
-                    sx={{
-                      bgcolor: card.borderColor,
-                      color: "#fff",
-                      boxShadow: "0 0 4px #aaa",
-                      width: 40,
-                      height: 40,
-                    }}
-                  >
-                    {card.icon}
-                  </Avatar>
-                  <Typography variant="subtitle2" fontWeight={600} style={{ fontSize: 16 }}>
-                    {card.label}
-                  </Typography>
-                </Box>
-                <Box flexGrow={1} pt={2} display="flex" alignItems="end" minHeight={52}>
-                  <Typography variant="h4" fontWeight={700} sx={{ fontSize: 36 }}>
-                    {formatValue(card, metrics[card.dataKey])}
-                  </Typography>
-                </Box>
-                {renderTrend(card)}
-              </Card>
-            </Tooltip>
-          </Grid>
-        ))}
-      </Grid>
+    <Box sx={{ display: "flex", backgroundColor: "#f5f7fa", minHeight: "100vh" }}>
+      {/* Sidebar */}
+      <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        <Box sx={{ width: 240, mt: 2 }}>
+          <List>
+            <ListItem button><ListItemIcon><DashboardIcon /></ListItemIcon><ListItemText primary="Dashboard" /></ListItem>
+            <ListItem button><ListItemIcon><BarChartIcon /></ListItemIcon><ListItemText primary="Reports" /></ListItem>
+            <ListItem button><ListItemIcon><FileDownloadIcon /></ListItemIcon><ListItemText primary="Export Data" /></ListItem>
+            <ListItem button><ListItemIcon><HelpOutlineIcon /></ListItemIcon><ListItemText primary="Help / Support" /></ListItem>
+          </List>
+        </Box>
+      </Drawer>
+
+      {/* Main */}
+      <Box sx={{ flexGrow: 1 }}>
+        {/* App Bar */}
+        <AppBar position="sticky" color="default" elevation={1}>
+          <Toolbar>
+            <IconButton onClick={() => setDrawerOpen(true)}><MenuIcon /></IconButton>
+            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>JorieAI RCM Dashboard</Typography>
+            <IconButton>
+              <Badge
+                overlap="circular"
+                badgeContent={<Box sx={{ width: 10, height: 10, bgcolor: "#44b84a", borderRadius: "50%" }} />}
+              >
+                <Avatar sx={{ bgcolor: "#416dea" }}><AccountCircleIcon /></Avatar>
+              </Badge>
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+
+        {/* Filters */}
+        <Box sx={{ p: 2, backgroundColor: "#fff", display: "flex", gap: 2 }}>
+          <TextField select size="small" label="Date Range (days)" value={filters.dateRange}
+            onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}>
+            <MenuItem value="30">Last 30 days</MenuItem>
+            <MenuItem value="60">Last 60 days</MenuItem>
+            <MenuItem value="90">Last 90 days</MenuItem>
+          </TextField>
+          <TextField size="small" label="Doctor / Dept" value={filters.doctor}
+            onChange={(e) => setFilters({ ...filters, doctor: e.target.value })} placeholder="All" />
+          <Button variant="contained">Apply</Button>
+        </Box>
+
+        {/* Banner */}
+        <Box sx={{
+          m: 2, p: 3, textAlign: 'center',
+          background: "linear-gradient(100deg, #3e8ef7 0%, #00b8a9 100%)",
+          color: "#fff", borderRadius: 3
+        }}>
+          <Typography variant="h4" fontWeight={700}>Revenue. Cycle. Excellence.</Typography>
+          <Typography>Fast, actionable RCM metrics for your team</Typography>
+        </Box>
+
+        {/* Metrics */}
+        <Grid container spacing={3} sx={{ p: 2 }}>
+          {metricCards.map(card => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={card.dataKey}>
+              <Tooltip title={card.tooltip || ""} arrow>
+                <Card
+                  sx={{
+                    px: 3, py: 2, borderRadius: 4,
+                    background: `linear-gradient(120deg, ${card.color}15 0%, #fff 100%)`,
+                    borderLeft: `6px solid ${card.color}`,
+                    cursor: card.dataKey === "gcr" ? "pointer" : "default",
+                    transition: "transform .15s",
+                    "&:hover": { transform: card.dataKey === "gcr" ? "scale(1.03)" : "none", boxShadow: `0 8px 24px ${card.color}33` }
+                  }}
+                  onClick={() => { if (card.dataKey === "gcr") navigate("/gcr"); }}
+                >
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Avatar sx={{ bgcolor: card.color }}>{card.icon}</Avatar>
+                    <Typography fontWeight={700}>{card.label}</Typography>
+                  </Box>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="h4" fontWeight={700}>{formatValue(card, metrics[card.dataKey])}</Typography>
+                  {renderTrend(card)}
+                </Card>
+              </Tooltip>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
     </Box>
   );
 };
