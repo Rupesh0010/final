@@ -30,11 +30,18 @@ import {
   Pie,
   Cell
 } from "recharts";
+import { DataGrid } from "@mui/x-data-grid";
 import Papa from "papaparse";
 import dayjs from "dayjs";
 import csvData from "../data/sample.csv?raw";
 
-const COLORS = ["#3e8ef7", "#00b8a9", "#f6a623", "#f45b69", "#8e44ad"];
+// Expanded and distinct color palette for better pie chart distinction:
+const COLORS = [
+  "#3e8ef7", "#00b8a9", "#f6a623", "#f45b69", "#8e44ad",
+  "#ff9800", "#4caf50", "#9c27b0", "#e91e63", "#00796b"
+];
+
+const TARGET_GCR = 95; // Target GCR %
 
 const GCRPage = () => {
   const theme = useTheme();
@@ -44,7 +51,7 @@ const GCRPage = () => {
   const [totalBilled, setTotalBilled] = useState(0);
   const [totalPaid, setTotalPaid] = useState(0);
   const [payerBreakdown, setPayerBreakdown] = useState([]);
-  const [deptBreakdown, setDeptBreakdown] = useState([]);
+  const [claims, setClaims] = useState([]);
   const [filters, setFilters] = useState({ dateRange: "365" });
 
   useEffect(() => {
@@ -59,7 +66,7 @@ const GCRPage = () => {
           DateOfService: dayjs(row.DateOfService),
         }));
 
-        // Filter by date range
+        // Filter based on date range
         const today = dayjs();
         const filteredData = allData.filter(
           (row) =>
@@ -67,7 +74,7 @@ const GCRPage = () => {
             today.diff(row.DateOfService, "day") <= parseInt(filters.dateRange)
         );
 
-        // Totals
+        // Totals and overall GCR
         const totalPaidVal = filteredData.reduce((sum, r) => sum + r.AmountPaid, 0);
         const totalBilledVal = filteredData.reduce((sum, r) => sum + r.AmountBilled, 0);
         setTotalBilled(totalBilledVal);
@@ -76,6 +83,7 @@ const GCRPage = () => {
           totalBilledVal ? ((totalPaidVal / totalBilledVal) * 100).toFixed(2) : 0
         );
 
+        // Monthly grouping initialized by month order for consistent order in charts
         const monthOrder = [
           "January", "February", "March", "April", "May",
           "June", "July", "August", "September", "October", "November", "December"
@@ -89,6 +97,7 @@ const GCRPage = () => {
           if (groupedByMonth[month]) groupedByMonth[month].push(row);
         });
 
+        // Prepare monthly GCR chart data
         const monthlyData = monthOrder.map((month) => {
           const rows = groupedByMonth[month];
           const totalPaidM = rows.reduce((sum, r) => sum + r.AmountPaid, 0);
@@ -98,20 +107,29 @@ const GCRPage = () => {
         });
         setMonthlyGCR(monthlyData);
 
-        const availableMonths = monthlyData.filter((m) => m.gcr > 0);
-        const lastMonthData = availableMonths[availableMonths.length - 1];
-        const last3 = availableMonths.slice(-4, -1);
-        const avgLast3 =
-          last3.length > 0
-            ? last3.reduce((sum, m) => sum + m.gcr, 0) / last3.length
-            : 0;
+        // Fix for Last 3 Months Avg calculation:
+        // Sort active months by month order and pick last 3 available months
+        const activeMonths = monthlyData
+          .filter(m => m.gcr > 0)
+          .sort(
+            (a, b) =>
+              monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month)
+          );
+
+        const last3Months = activeMonths.slice(-3);
+        const avgLast3 = last3Months.length
+          ? last3Months.reduce((sum, m) => sum + m.gcr, 0) / last3Months.length
+          : 0;
+        const lastMonthData = last3Months.length
+          ? last3Months[last3Months.length - 1]
+          : { month: "Current", gcr: 0 };
 
         setComparisonGCR([
           { period: "Last 3 Months Avg", gcr: parseFloat(avgLast3.toFixed(2)) },
-          { period: lastMonthData?.month || "Current", gcr: lastMonthData?.gcr || 0 },
+          { period: lastMonthData.month, gcr: lastMonthData.gcr },
         ]);
 
-        // Payer Breakdown
+        // Payer breakdown (amount paid grouped by payer)
         const payerMap = {};
         filteredData.forEach((row) => {
           const payer = row.Payer || "Unknown";
@@ -121,19 +139,21 @@ const GCRPage = () => {
           Object.entries(payerMap).map(([name, value]) => ({ name, value }))
         );
 
-        // Department Breakdown
-        const deptMap = {};
-        filteredData.forEach((row) => {
-          const dept = row.Department || "Unknown";
-          deptMap[dept] = (deptMap[dept] || 0) + row.AmountPaid;
-        });
-        setDeptBreakdown(
-          Object.entries(deptMap).map(([name, value]) => ({ name, value }))
-        );
+        // Detailed Claims for table - filtered data mapped with essential fields
+        const claimsData = filteredData.map((row, index) => ({
+          id: row.ClaimID || index.toString(),
+          billed: row.AmountBilled,
+          paid: row.AmountPaid,
+          adjustmentReason: row.AdjustmentReason || "-",
+          payer: row.Payer || "-",
+          agingDays: Math.max(dayjs().diff(row.DateOfService, "day"), 0),
+        }));
+        setClaims(claimsData);
       },
     });
   }, [filters]);
 
+  // Style for cards with colored left border and gradient background
   const chartCardStyle = (color) => ({
     borderRadius: theme.shape.borderRadius,
     borderLeft: `6px solid ${color}`,
@@ -213,36 +233,72 @@ const GCRPage = () => {
         {/* KPI Cards */}
         <Grid container spacing={3} mb={3}>
           <Grid item xs={12} md={4}>
-            <Card sx={chartCardStyle("#3e8ef7")} role="region" aria-label="Overall GCR">
+            <Card
+              sx={chartCardStyle("#3e8ef7")}
+              role="region"
+              aria-label="Overall GCR"
+            >
               <CardContent>
-                <Typography variant="subtitle2" color={theme.palette.text.secondary} gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  color={theme.palette.text.secondary}
+                  gutterBottom
+                >
                   Overall GCR
                 </Typography>
-                <Typography variant="h3" fontWeight={700} color={theme.palette.primary.main}>
+                <Typography
+                  variant="h3"
+                  fontWeight={700}
+                  color={theme.palette.primary.main}
+                >
                   {overallGCR}%
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Card sx={chartCardStyle("#00b8a9")} role="region" aria-label="Total Charges Billed">
+            <Card
+              sx={chartCardStyle("#00b8a9")}
+              role="region"
+              aria-label="Total Charges Billed"
+            >
               <CardContent>
-                <Typography variant="subtitle2" color={theme.palette.text.secondary} gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  color={theme.palette.text.secondary}
+                  gutterBottom
+                >
                   Total Charges Billed
                 </Typography>
-                <Typography variant="h3" fontWeight={700} color={theme.palette.success.main}>
+                <Typography
+                  variant="h3"
+                  fontWeight={700}
+                  color={theme.palette.success.main}
+                >
                   ${totalBilled.toLocaleString()}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Card sx={chartCardStyle("#f6a623")} role="region" aria-label="Total Payments Received">
+            <Card
+              sx={chartCardStyle("#f6a623")}
+              role="region"
+              aria-label="Total Payments Received"
+            >
               <CardContent>
-                <Typography variant="subtitle2" color={theme.palette.text.secondary} gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  color={theme.palette.text.secondary}
+                  gutterBottom
+                >
                   Total Payments Received
                 </Typography>
-                <Typography variant="h3" fontWeight={700} color={theme.palette.warning.main}>
+                <Typography
+                  variant="h3"
+                  fontWeight={700}
+                  color={theme.palette.warning.main}
+                >
                   ${totalPaid.toLocaleString()}
                 </Typography>
               </CardContent>
@@ -250,55 +306,109 @@ const GCRPage = () => {
           </Grid>
         </Grid>
 
-        {/* Charts */}
+        {/* Charts Section */}
         <Grid container spacing={4}>
-
-          {/* Month-wise GCR Trend Line Chart - width 8 columns */}
+          {/* Month-wise GCR Trend Line Chart */}
           <Grid item xs={12} md={8}>
-            <Card sx={chartCardStyle("#3e8ef7")} role="region" aria-label="Month-wise Gross Collection Rate Trend chart">
+            <Card
+              sx={chartCardStyle("#3e8ef7")}
+              role="region"
+              aria-label="Month-wise Gross Collection Rate Trend chart"
+            >
               <CardContent>
-                <Typography variant="h4" fontWeight={700} gutterBottom color={theme.palette.primary.main}>
+                <Typography
+                  variant="h3"
+                  fontWeight={700}
+                  gutterBottom
+                  color={theme.palette.primary.main}
+                >
                   Month-wise GCR Trend
                 </Typography>
                 <ResponsiveContainer width="100%" height={320}>
                   <LineChart data={monthlyGCR}>
-                    <CartesianGrid strokeDasharray="5 5" stroke={theme.palette.divider} />
-                    <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
-                    <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} stroke={theme.palette.text.secondary} />
+                    <CartesianGrid
+                      strokeDasharray="5 5"
+                      stroke={theme.palette.divider}
+                    />
+                    <XAxis
+                      dataKey="month"
+                      stroke={theme.palette.text.secondary}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}%`}
+                      stroke={theme.palette.text.secondary}
+                    />
                     <RechartsTooltip formatter={(v) => `${v}%`} />
                     <Legend />
-                    <Line type="monotone" dataKey="gcr" stroke="#3e8ef7" strokeWidth={3} dot={{ r: 4 }} />
+                    <Line
+                      type="monotone"
+                      dataKey="gcr"
+                      stroke="#3e8ef7"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           </Grid>
 
-          {/* 3-Month Comparison Bar Chart - width 4 columns */}
+          {/* 3-Month Comparison Bar Chart */}
           <Grid item xs={12} md={4}>
-            <Card sx={chartCardStyle("#00b8a9")} role="region" aria-label="3-Month Gross Collection Rate comparison chart">
+            <Card
+              sx={chartCardStyle("#00b8a9")}
+              role="region"
+              aria-label="3-Month Gross Collection Rate comparison chart"
+            >
               <CardContent>
-                <Typography variant="h4" fontWeight={700} gutterBottom color={theme.palette.info.main}>
+                <Typography
+                  variant="h3"
+                  fontWeight={700}
+                  gutterBottom
+                  color={theme.palette.info.main}
+                >
                   3-Month Trends
                 </Typography>
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={comparisonGCR}>
-                    <XAxis dataKey="period" stroke={theme.palette.text.secondary} />
-                    <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} stroke={theme.palette.text.secondary} />
+                    <XAxis
+                      dataKey="period"
+                      stroke={theme.palette.text.secondary}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}%`}
+                      stroke={theme.palette.text.secondary}
+                    />
                     <RechartsTooltip formatter={(v) => `${v}%`} />
                     <Legend />
-                    <Bar dataKey="gcr" fill="#00b8a9" radius={[8, 8, 0, 0]} barSize={30} />
+                    <Bar
+                      dataKey="gcr"
+                      fill="#00b8a9"
+                      radius={[8, 8, 0, 0]}
+                      barSize={30}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Payer Breakdown Pie Chart - width 6 columns */}
+          {/* Payer Breakdown Pie Chart */}
           <Grid item xs={12} md={6}>
-            <Card sx={chartCardStyle("#f6a623")} role="region" aria-label="Payer Breakdown pie chart">
+            <Card
+              sx={chartCardStyle("#f6a623")}
+              role="region"
+              aria-label="Payer Breakdown pie chart"
+            >
               <CardContent>
-                <Typography variant="h4" fontWeight={700} gutterBottom color={theme.palette.warning.main}>
+                <Typography
+                  variant="h3"
+                  fontWeight={700}
+                  gutterBottom
+                  color={theme.palette.warning.main}
+                >
                   Payer Breakdown
                 </Typography>
                 <ResponsiveContainer width="100%" height={320}>
@@ -309,7 +419,6 @@ const GCRPage = () => {
                       nameKey="name"
                       label
                       outerRadius={110}
-                      fill={theme.palette.warning.main}
                       stroke="none"
                     >
                       {payerBreakdown.map((_, i) => (
@@ -323,25 +432,42 @@ const GCRPage = () => {
             </Card>
           </Grid>
 
-          {/* Department / Specialty Bar Chart - width 6 columns */}
+          {/* Claim Level Details Table - replaces Department/Specialty chart */}
           <Grid item xs={12} md={6}>
-            <Card sx={chartCardStyle("#8e44ad")} role="region" aria-label="Department and Specialty Breakdown bar chart">
+            <Card
+              sx={chartCardStyle("#8e44ad")}
+              role="region"
+              aria-label="Claim Level Details Table"
+            >
               <CardContent>
-                <Typography variant="h6" fontWeight={700} gutterBottom color={theme.palette.secondary.main}>
-                  Department / Specialty Breakdown
+                <Typography
+                  variant="h6"
+                  fontWeight={700}
+                  gutterBottom
+                  color={theme.palette.secondary.main}
+                >
+                  Claim Level Details
                 </Typography>
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={deptBreakdown}>
-                    <XAxis dataKey="name" stroke={theme.palette.text.secondary} />
-                    <YAxis stroke={theme.palette.text.secondary} />
-                    <RechartsTooltip />
-                    <Bar dataKey="value" fill="#8e44ad" radius={[8, 8, 0, 0]} barSize={28} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Box sx={{ height: 340 }}>
+                  <DataGrid
+                    rows={claims}
+                    columns={[
+                      { field: "id", headerName: "Claim ID", width: 130 },
+                      { field: "billed", headerName: "Billed Amount ($)", width: 150 },
+                      { field: "paid", headerName: "Paid Amount ($)", width: 150 },
+                      { field: "adjustmentReason", headerName: "Adjustment Reason", width: 180 },
+                      { field: "payer", headerName: "Payer", width: 160 },
+                      { field: "agingDays", headerName: "Aging (days)", width: 130 },
+                    ]}
+                    pageSize={5}
+                    rowsPerPageOptions={[5]}
+                    disableSelectionOnClick
+                    autoHeight={false}
+                  />
+                </Box>
               </CardContent>
             </Card>
           </Grid>
-
         </Grid>
       </Box>
     </Box>

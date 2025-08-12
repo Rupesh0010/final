@@ -1,5 +1,6 @@
+// Dashboard.jsx
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ For navigation
+import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import dayjs from "dayjs";
 import {
@@ -14,7 +15,7 @@ import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
-import MoneyOffCsredIcon from "@mui/icons-material/MoneyOffCsred";
+import MoneyOffIcon from "@mui/icons-material/MoneyOff";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -25,24 +26,32 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import csvData from "../data/sample.csv?raw";
 
+// ✅ Updated metricCards with routeKey that matches your KPI pages
 const metricCards = [
-  { label: "Gross Collection Rate", dataKey: "gcr", icon: <AssessmentIcon />, color: "#3e8ef7", isPercent: true, showTrend: true },
-  { label: "Denial Rate", dataKey: "denialRate", icon: <MoneyOffCsredIcon />, color: "#ff6f60", isPercent: true, showTrend: true },
-  { label: "Total Claims", dataKey: "totalClaims", icon: <AssignmentTurnedInIcon />, color: "#73e260", isPercent: false, showTrend: true },
-  { label: "Total Payments", dataKey: "totalPayments", icon: <AttachMoneyIcon />, color: "#ffd760", isCurrency: true, showTrend: true },
-  { label: "Net Collection Rate (NCR)", dataKey: "ncr", icon: <TrendingUpIcon />, color: "#ae4ed7", isPercent: true, showTrend: true },
-  { label: "First Pass Rate (FPR)", dataKey: "fpr", icon: <TrendingUpIcon />, color: "#00b8a9", isPercent: true, showTrend: true },
-  { label: "Charge Lag (days)", dataKey: "chargeLagDays", icon: <HourglassEmptyIcon />, color: "#416dea", isPercent: false, showTrend: true },
-  { label: "Billing Lag (days)", dataKey: "billingLagDays", icon: <HourglassEmptyIcon />, color: "#ff8650", isPercent: false, showTrend: true },
-  { label: "Claim Charge Ratio (CCR)", dataKey: "ccr", icon: <AssessmentIcon />, color: "#a1aec6", isPercent: true, showTrend: true },
-  { label: "Accounts Receivable (AR)", dataKey: "ar", icon: <AttachMoneyIcon />, color: "#6a5acd", isCurrency: true, showTrend: true },
-  { label: "AR > 90 days", dataKey: "ar90", icon: <AttachMoneyIcon />, color: "#d9534f", isCurrency: true, showTrend: true },
+  { label: "Gross Collection Rate", routeKey: "gcr", dataKey: "gcr", icon: <AssessmentIcon />, color: "#3e8ef7", isPercent: true, showTrend: true },
+  { label: "Denial Rate", routeKey: "denial-rate", dataKey: "denialRate", icon: <MoneyOffIcon />, color: "#ff6f60", isPercent: true, showTrend: true },
+  { label: "Total Claims", routeKey: "total-claims", dataKey: "totalClaims", icon: <AssignmentTurnedInIcon />, color: "#73e260", isPercent: false, showTrend: true },
+  { label: "Total Payments", routeKey: "total-payments", dataKey: "totalPayments", icon: <AttachMoneyIcon />, color: "#ffd760", isCurrency: true, showTrend: true },
+  { label: "Net Collection Rate (NCR)", routeKey: "ncr", dataKey: "ncr", icon: <TrendingUpIcon />, color: "#ae4ed7", isPercent: true, showTrend: true },
+  { label: "First Pass Rate (FPR)", routeKey: "fpr", dataKey: "fpr", icon: <TrendingUpIcon />, color: "#00b8a9", isPercent: true, showTrend: true },
+  { label: "Charge Lag (days)", routeKey: "charge-lag", dataKey: "chargeLagDays", icon: <HourglassEmptyIcon />, color: "#416dea", isPercent: false, showTrend: true },
+  { label: "Billing Lag (days)", routeKey: "billing-lag", dataKey: "billingLagDays", icon: <HourglassEmptyIcon />, color: "#ff8650", isPercent: false, showTrend: true },
+  { label: "Claim Charge Ratio (CCR)", routeKey: "ccr", dataKey: "ccr", icon: <AssessmentIcon />, color: "#a1aec6", isPercent: true, showTrend: true },
+  { label: "Accounts Receivable (AR)", routeKey: "ar-days", dataKey: "ar", icon: <AttachMoneyIcon />, color: "#6a5acd", isCurrency: true, showTrend: true },
+  { label: "AR > 90 days", routeKey: "ar-90-days", dataKey: "ar90", icon: <AttachMoneyIcon />, color: "#d9534f", isCurrency: true, showTrend: true }
 ];
 
 // Helpers
 const initMetrics = () => ({
-  totalClaims: 0, totalPayments: 0, totalBilled: 0, totalAllowed: 0,
-  deniedClaims: 0, firstPass: 0, chargeLagDays: 0, billingLagDays: 0, ar90: 0
+  totalClaims: 0,
+  totalPayments: 0,
+  totalBilled: 0,
+  totalAllowed: 0,
+  deniedClaims: 0,
+  firstPass: 0,
+  chargeLagDays: 0,
+  billingLagDays: 0,
+  ar90: 0
 });
 
 const finalizeMetrics = (m) => {
@@ -53,11 +62,17 @@ const finalizeMetrics = (m) => {
   const ccr = m.totalAllowed ? Math.min((m.totalPayments / m.totalAllowed) * 100, 100) : 0;
   const ar = m.totalBilled - m.totalPayments;
   return {
-    gcr, denialRate, totalClaims: m.totalClaims, totalPayments: m.totalPayments,
-    ncr, fpr,
+    gcr,
+    denialRate,
+    totalClaims: m.totalClaims,
+    totalPayments: m.totalPayments,
+    ncr,
+    fpr,
     chargeLagDays: m.totalClaims ? m.chargeLagDays / m.totalClaims : 0,
     billingLagDays: m.totalClaims ? m.billingLagDays / m.totalClaims : 0,
-    ccr, ar, ar90: m.ar90
+    ccr,
+    ar,
+    ar90: m.ar90
   };
 };
 
@@ -66,9 +81,8 @@ const Dashboard = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [filters, setFilters] = useState({ dateRange: "30", doctor: "" });
   const today = dayjs();
-  const navigate = useNavigate(); // ✅ For GCR redirect
+  const navigate = useNavigate();
 
-  // Optimized data parsing
   useEffect(() => {
     Papa.parse(csvData, {
       header: true,
@@ -80,8 +94,13 @@ const Dashboard = () => {
         let past = initMetrics();
 
         for (let row of data) {
+          if (filters.doctor && !row.DoctorName?.toLowerCase().includes(filters.doctor.toLowerCase())) {
+            continue;
+          }
+
           const dos = dayjs(row.DateOfService);
           if (!dos.isValid()) continue;
+
           const diff = today.diff(dos, "day");
           let target = null;
           if (diff <= daysLimit) target = recent;
@@ -149,7 +168,16 @@ const Dashboard = () => {
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box sx={{ width: 240, mt: 2 }}>
           <List>
-            <ListItem button><ListItemIcon><DashboardIcon /></ListItemIcon><ListItemText primary="Dashboard" /></ListItem>
+            <ListItem button onClick={() => navigate("/")}>
+              <ListItemIcon><DashboardIcon /></ListItemIcon>
+              <ListItemText primary="Dashboard" />
+            </ListItem>
+            {metricCards.map(item => (
+              <ListItem button key={item.routeKey} onClick={() => navigate(`/${item.routeKey}`)}>
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItem>
+            ))}
             <ListItem button><ListItemIcon><BarChartIcon /></ListItemIcon><ListItemText primary="Reports" /></ListItem>
             <ListItem button><ListItemIcon><FileDownloadIcon /></ListItemIcon><ListItemText primary="Export Data" /></ListItem>
             <ListItem button><ListItemIcon><HelpOutlineIcon /></ListItemIcon><ListItemText primary="Help / Support" /></ListItem>
@@ -159,16 +187,12 @@ const Dashboard = () => {
 
       {/* Main */}
       <Box sx={{ flexGrow: 1 }}>
-        {/* App Bar */}
         <AppBar position="sticky" color="default" elevation={1}>
           <Toolbar>
             <IconButton onClick={() => setDrawerOpen(true)}><MenuIcon /></IconButton>
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>JorieAI RCM Dashboard</Typography>
             <IconButton>
-              <Badge
-                overlap="circular"
-                badgeContent={<Box sx={{ width: 10, height: 10, bgcolor: "#44b84a", borderRadius: "50%" }} />}
-              >
+              <Badge overlap="circular" badgeContent={<Box sx={{ width: 10, height: 10, bgcolor: "#44b84a", borderRadius: "50%" }} />}>
                 <Avatar sx={{ bgcolor: "#416dea" }}><AccountCircleIcon /></Avatar>
               </Badge>
             </IconButton>
@@ -183,17 +207,13 @@ const Dashboard = () => {
             <MenuItem value="60">Last 60 days</MenuItem>
             <MenuItem value="90">Last 90 days</MenuItem>
           </TextField>
-          <TextField size="small" label="Doctor / Dept" value={filters.doctor}
+          <TextField size="small" label="Doctor / Provider" value={filters.doctor}
             onChange={(e) => setFilters({ ...filters, doctor: e.target.value })} placeholder="All" />
           <Button variant="contained">Apply</Button>
         </Box>
 
         {/* Banner */}
-        <Box sx={{
-          m: 2, p: 3, textAlign: 'center',
-          background: "linear-gradient(100deg, #3e8ef7 0%, #00b8a9 100%)",
-          color: "#fff", borderRadius: 3
-        }}>
+        <Box sx={{ m: 2, p: 3, textAlign: 'center', background: "linear-gradient(100deg, #3e8ef7 0%, #00b8a9 100%)", color: "#fff", borderRadius: 3 }}>
           <Typography variant="h4" fontWeight={700}>Revenue. Cycle. Excellence.</Typography>
           <Typography>Fast, actionable RCM metrics for your team</Typography>
         </Box>
@@ -208,18 +228,20 @@ const Dashboard = () => {
                     px: 3, py: 2, borderRadius: 4,
                     background: `linear-gradient(120deg, ${card.color}15 0%, #fff 100%)`,
                     borderLeft: `6px solid ${card.color}`,
-                    cursor: card.dataKey === "gcr" ? "pointer" : "default",
                     transition: "transform .15s",
-                    "&:hover": { transform: card.dataKey === "gcr" ? "scale(1.03)" : "none", boxShadow: `0 8px 24px ${card.color}33` }
+                    cursor: "pointer",
+                    "&:hover": { transform: "scale(1.03)", boxShadow: `0 8px 24px ${card.color}33` }
                   }}
-                  onClick={() => { if (card.dataKey === "gcr") navigate("/gcr"); }}
+                  onClick={() => navigate(`/${card.routeKey}`)} // ✅ navigate using routeKey
                 >
                   <Box display="flex" alignItems="center" gap={1}>
                     <Avatar sx={{ bgcolor: card.color }}>{card.icon}</Avatar>
                     <Typography fontWeight={700}>{card.label}</Typography>
                   </Box>
                   <Divider sx={{ my: 1 }} />
-                  <Typography variant="h4" fontWeight={700}>{formatValue(card, metrics[card.dataKey])}</Typography>
+                  <Typography variant="h4" fontWeight={700}>
+                    {formatValue(card, metrics[card.dataKey])}
+                  </Typography>
                   {renderTrend(card)}
                 </Card>
               </Tooltip>

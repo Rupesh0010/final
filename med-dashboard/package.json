@@ -14,13 +14,16 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.0",
     "@mui/material": "^7.3.0",
+    "@mui/x-data-grid": "^8.10.0",
     "@syncfusion/ej2-react-charts": "^30.2.4",
+    "chart.js": "^4.5.0",
     "dayjs": "^1.11.13",
     "papaparse": "^5.5.3",
     "react": "^19.1.0",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.7.1",
-    "recharts": "^3.1.1"
+    "recharts": "^3.1.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
