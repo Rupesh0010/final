@@ -198,7 +198,7 @@ const FPRPage = () => {
           <Grid item xs={12} md={8}>
             <Card sx={chartCardStyle("#3e8ef7")}>
               <CardContent>
-                <Typography variant="h2" gutterBottom>Monthly FPR Trend</Typography>
+                <Typography variant="h6" gutterBottom>Monthly FPR Trend</Typography>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={monthlyFPR}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -217,7 +217,7 @@ const FPRPage = () => {
           <Grid item xs={12} md={4}>
             <Card sx={chartCardStyle("#00b8a9")}>
               <CardContent>
-                <Typography variant="h4" gutterBottom>Comparison</Typography>
+                <Typography variant="h6" gutterBottom>Comparison</Typography>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={comparisonFPR}>
                     <XAxis dataKey="period" />
@@ -235,7 +235,7 @@ const FPRPage = () => {
           <Grid item xs={12} md={6}>
             <Card sx={chartCardStyle("#f6a623")}>
               <CardContent>
-                <Typography variant="h4" gutterBottom>Department-wise FPR</Typography>
+                <Typography variant="h6" gutterBottom>Department-wise FPR</Typography>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie data={deptBreakdown} dataKey="fpr" nameKey="name" outerRadius={100} label>
