@@ -1,4 +1,3 @@
-// src/pages/FPRPage.jsx
 import React, { useEffect, useState } from "react";
 import {
   Box,
@@ -45,24 +44,35 @@ import { DataGrid } from "@mui/x-data-grid";
 import Papa from "papaparse";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
+
 import csvData from "../data/sample.csv?raw";
 
-// Unified COLORS palette to match NCR styling
+// Colors palette consistent with NCR and FPR pages
 const COLORS = [
-  "#3e8ef7", "#00b8a9", "#f6a623", "#f45b69", "#8e44ad",
-  "#ae4ed7", "#4caf50", "#9c27b0", "#00796b", "#d9534f"
+  "#ff6f60", // main denial color
+  "#3e8ef7",
+  "#00b8a9",
+  "#f6a623",
+  "#8e44ad",
+  "#ae4ed7",
+  "#4caf50",
+  "#9c27b0",
+  "#00796b",
+  "#d9534f",
 ];
 
-const FPRPage = () => {
+const DenialRatePage = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [monthlyFPR, setMonthlyFPR] = useState([]);
-  const [comparisonFPR, setComparisonFPR] = useState([]);
-  const [overallFPR, setOverallFPR] = useState(0);
+
+  // States for metrics and data
+  const [overallDenialRate, setOverallDenialRate] = useState(0);
   const [totalClaims, setTotalClaims] = useState(0);
-  const [resolvedFirstPass, setResolvedFirstPass] = useState(0);
-  const [deptBreakdown, setDeptBreakdown] = useState([]);
+  const [deniedClaims, setDeniedClaims] = useState(0);
+  const [monthlyDenialRate, setMonthlyDenialRate] = useState([]);
+  const [comparisonDenialRate, setComparisonDenialRate] = useState([]);
+  const [denialReasons, setDenialReasons] = useState([]);
   const [claims, setClaims] = useState([]);
   const [filters, setFilters] = useState({ dateRange: "365" });
 
@@ -74,86 +84,90 @@ const FPRPage = () => {
         const allData = results.data.map((row) => ({
           ...row,
           DateOfService: dayjs(row.DateOfService),
-          FirstPassResolution:
-            (row.FirstPassResolution || "").toLowerCase() === "yes",
+          Status: (row.Status || "").toLowerCase(),
+          DenialReason: row.DenialReason || "Unknown",
         }));
+
         const today = dayjs();
         const filteredData = allData.filter(
           (row) =>
             row.DateOfService.isValid() &&
             today.diff(row.DateOfService, "day") <= parseInt(filters.dateRange)
         );
-        const total = filteredData.length;
-        const firstPassCount = filteredData.filter(r => r.FirstPassResolution).length;
-        setTotalClaims(total);
-        setResolvedFirstPass(firstPassCount);
-        setOverallFPR(total ? ((firstPassCount / total) * 100).toFixed(2) : 0);
 
-        // Monthly trend
+        const total = filteredData.length;
+        const denied = filteredData.filter((r) => r.Status === "denied").length;
+        const denialRate = total ? ((denied / total) * 100).toFixed(2) : 0;
+
+        setTotalClaims(total);
+        setDeniedClaims(denied);
+        setOverallDenialRate(denialRate);
+
+        // Monthly denial rate grouping and calc
         const monthOrder = [
           "January","February","March","April","May","June",
           "July","August","September","October","November","December"
         ];
         const monthStats = {};
-        monthOrder.forEach(m => monthStats[m] = { total: 0, pass: 0 });
-        filteredData.forEach(r => {
+        monthOrder.forEach((m) => (monthStats[m] = { total: 0, denied: 0 }));
+
+        filteredData.forEach((r) => {
           const m = r.DateOfService.format("MMMM");
           if (monthStats[m]) {
             monthStats[m].total += 1;
-            if (r.FirstPassResolution) monthStats[m].pass += 1;
+            if (r.Status === "denied") monthStats[m].denied += 1;
           }
         });
-        const monthlyData = monthOrder.map(m => {
-          const { total, pass } = monthStats[m];
-          return { month: m, fpr: total ? parseFloat(((pass / total) * 100).toFixed(2)) : 0 };
-        });
-        setMonthlyFPR(monthlyData);
 
-        // Comparison: last 3 months avg + last month
-        const activeMonths = monthlyData.filter(m => m.fpr > 0);
+        const monthlyData = monthOrder.map((m) => {
+          const { total, denied } = monthStats[m];
+          const rate = total ? parseFloat(((denied / total) * 100).toFixed(2)) : 0;
+          return { month: m, denialRate: rate };
+        });
+        setMonthlyDenialRate(monthlyData);
+
+        // Last 3 months avg + latest month comparison
+        const activeMonths = monthlyData.filter((m) => m.denialRate > 0);
         const last3 = activeMonths.slice(-3);
         const avgLast3 = last3.length
-          ? last3.reduce((sum, m) => sum + m.fpr, 0) / last3.length
+          ? last3.reduce((sum, m) => sum + m.denialRate, 0) / last3.length
           : 0;
-        const lastMonthData = last3.length ? last3[last3.length - 1] : { month: "Current", fpr: 0 };
-        setComparisonFPR([
-          { period: "Last 3 Months Avg", fpr: parseFloat(avgLast3.toFixed(2)) },
-          { period: lastMonthData.month, fpr: lastMonthData.fpr }
+        const lastMonthData = last3.length ? last3[last3.length - 1] : { month: "Current", denialRate: 0 };
+        setComparisonDenialRate([
+          { period: "Last 3 Months Avg", denialRate: parseFloat(avgLast3.toFixed(2)) },
+          { period: lastMonthData.month, denialRate: lastMonthData.denialRate },
         ]);
 
-        // Dept breakdown
-        const deptMap = {};
-        filteredData.forEach(r => {
-          const dept = r.Dept || "Unknown";
-          if (!deptMap[dept]) deptMap[dept] = { total: 0, pass: 0 };
-          deptMap[dept].total++;
-          if (r.FirstPassResolution) deptMap[dept].pass++;
+        // Denial reason breakdown for pie chart
+        const reasonMap = {};
+        filteredData.forEach((r) => {
+          if (r.Status === "denied") {
+            reasonMap[r.DenialReason] = (reasonMap[r.DenialReason] || 0) + 1;
+          }
         });
-        const deptData = Object.entries(deptMap).map(([name, d]) => ({
+        const reasonData = Object.entries(reasonMap).map(([name, value]) => ({
           name,
-          fpr: d.total ? parseFloat(((d.pass / d.total) * 100).toFixed(2)) : 0
+          value,
         }));
-        setDeptBreakdown(deptData);
+        setDenialReasons(reasonData);
 
-        // Claims table
+        // Detailed claims data for table
         const claimsData = filteredData.map((row, idx) => ({
           id: row.ClaimID || idx,
           dateOfService: row.DateOfService.format("YYYY-MM-DD"),
           status: row.Status || "-",
-          firstPass: row.FirstPassResolution ? "Yes" : "No",
-          dept: row.Dept || "-",
+          denialReason: row.DenialReason || "-",
           payer: row.Payer || "-",
           provider: row.Provider || "-",
           client: row.Client || "-",
-          adjustmentReason: row.AdjustmentReason || "-",
-          denialReason: row.DenialReason || "-",
-          appealStatus: row.AppealStatus || "-"
+          appealStatus: row.AppealStatus || "-",
         }));
         setClaims(claimsData);
-      }
+      },
     });
   }, [filters]);
 
+  // Card styling consistent with NCR and FPR
   const chartCardStyle = (color) => ({
     borderRadius: theme.shape.borderRadius,
     borderLeft: `6px solid ${color}`,
@@ -162,31 +176,34 @@ const FPRPage = () => {
   });
 
   return (
-    <Box sx={{ backgroundColor: "#f8fbff", minHeight: "100vh" }}>
-      {/* AppBar with Hamburger Menu and Logo */}
+    <Box sx={{ backgroundColor: "#fff8f7", minHeight: "100vh" }}>
+      {/* AppBar with Hamburger Menu */}
       <AppBar position="sticky" color="default" elevation={1}>
         <Toolbar>
           <IconButton
             onClick={() => setDrawerOpen(true)}
             edge="start"
             aria-label="open drawer"
-            sx={{ mr: 1 }}
+            sx={{ mr: 2 }}
           >
             <MenuIcon />
           </IconButton>
-          <Box
-            component="img"
-            src="/logo.png"
-            alt="Logo"
-            sx={{ height: 40, mr: 2 }}
-          />
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
-            First Pass Resolution (FPR) Analysis
+            Denial Rate Analysis
           </Typography>
           <IconButton>
             <Badge
               overlap="circular"
-              badgeContent={<Box sx={{ width: 10, height: 10, bgcolor: "#44b84a", borderRadius: "50%" }} />}
+              badgeContent={
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    bgcolor: "#44b84a",
+                    borderRadius: "50%",
+                  }}
+                />
+              }
             >
               <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
                 <AccountCircleIcon />
@@ -214,34 +231,42 @@ const FPRPage = () => {
               <ListItemIcon><DashboardIcon /></ListItemIcon>
               <ListItemText primary="Dashboard" />
             </ListItem>
+
             <ListItem button onClick={() => navigate("/gcr")}>
               <ListItemIcon><BarChartIcon /></ListItemIcon>
               <ListItemText primary="Gross Collection Rate" />
             </ListItem>
+
             <ListItem button onClick={() => navigate("/ncr")}>
               <ListItemIcon><BarChartIcon /></ListItemIcon>
               <ListItemText primary="Net Collection Rate" />
             </ListItem>
+
             <ListItem button onClick={() => navigate("/denial-rate")}>
               <ListItemIcon><BarChartIcon /></ListItemIcon>
               <ListItemText primary="Denial Rate" />
             </ListItem>
+
             <ListItem button onClick={() => navigate("/fpr")}>
               <ListItemIcon><BarChartIcon /></ListItemIcon>
               <ListItemText primary="First Pass Rate" />
             </ListItem>
+
             <ListItem button onClick={() => navigate("/total-claims")}>
               <ListItemIcon><BarChartIcon /></ListItemIcon>
               <ListItemText primary="Total Claims" />
             </ListItem>
+
             <ListItem button onClick={() => navigate("/total-payments")}>
               <ListItemIcon><BarChartIcon /></ListItemIcon>
               <ListItemText primary="Total Payments" />
             </ListItem>
+
             <ListItem button>
               <ListItemIcon><FileDownloadIcon /></ListItemIcon>
               <ListItemText primary="Export Data" />
             </ListItem>
+
             <ListItem button>
               <ListItemIcon><HelpOutlineIcon /></ListItemIcon>
               <ListItemText primary="Help / Support" />
@@ -251,7 +276,7 @@ const FPRPage = () => {
       </Drawer>
 
       <Box sx={{ p: { xs: 2, md: 3 } }}>
-        {/* Filter Section */}
+        {/* Filters */}
         <Box
           sx={{
             mb: 3,
@@ -283,37 +308,37 @@ const FPRPage = () => {
         {/* KPI Cards */}
         <Grid container spacing={3} mb={3}>
           <Grid item xs={12} md={4}>
-            <Card sx={chartCardStyle(COLORS[0])}>
+            <Card sx={chartCardStyle("#ff6f60")}>
               <CardContent>
                 <Typography variant="subtitle2" color={theme.palette.text.secondary} gutterBottom>
-                  Overall FPR
+                  Overall Denial Rate
                 </Typography>
-                <Typography variant="h3" fontWeight={700} color={theme.palette.primary.main}>
-                  {overallFPR}%
+                <Typography variant="h3" fontWeight={700} color={theme.palette.error.main}>
+                  {overallDenialRate}%
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Card sx={chartCardStyle(COLORS[1])}>
+            <Card sx={chartCardStyle("#3e8ef7")}>
               <CardContent>
                 <Typography variant="subtitle2" color={theme.palette.text.secondary} gutterBottom>
                   Total Claims
                 </Typography>
-                <Typography variant="h3" fontWeight={700} color={theme.palette.success.main}>
+                <Typography variant="h3" fontWeight={700} color={theme.palette.primary.main}>
                   {totalClaims}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Card sx={chartCardStyle(COLORS[2])}>
+            <Card sx={chartCardStyle("#d9534f")}>
               <CardContent>
                 <Typography variant="subtitle2" color={theme.palette.text.secondary} gutterBottom>
-                  Resolved on First Pass
+                  Denied Claims
                 </Typography>
-                <Typography variant="h3" fontWeight={700} color={theme.palette.error.main}>
-                  {resolvedFirstPass}
+                <Typography variant="h3" fontWeight={700} color={theme.palette.error.dark}>
+                  {deniedClaims}
                 </Typography>
               </CardContent>
             </Card>
@@ -322,21 +347,28 @@ const FPRPage = () => {
 
         {/* Charts Section */}
         <Grid container spacing={2}>
-          {/* Month-wise FPR Trend Line Chart */}
+          {/* Monthly Denial Rate Trend Line Chart */}
           <Grid item xs={8} md={8}>
-            <Card sx={chartCardStyle(COLORS[0])}>
+            <Card sx={chartCardStyle("#ff6f60")}>
               <CardContent>
-                <Typography variant="h3" fontWeight={700} gutterBottom color={theme.palette.primary.main}>
-                  Month-wise FPR Trend
+                <Typography variant="h3" fontWeight={700} gutterBottom color={theme.palette.error.main}>
+                  Monthly Denial Rate Trend
                 </Typography>
                 <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={monthlyFPR}>
+                  <LineChart data={monthlyDenialRate}>
                     <CartesianGrid strokeDasharray="5 5" stroke={theme.palette.divider} />
                     <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
-                    <YAxis domain={[0, 110]} tickFormatter={v => `${v}%`} stroke={theme.palette.text.secondary} />
-                    <RechartsTooltip formatter={v => `${v}%`} />
+                    <YAxis domain={[0, 110]} tickFormatter={(v) => `${v}%`} stroke={theme.palette.text.secondary} />
+                    <RechartsTooltip formatter={(v) => `${v}%`} />
                     <Legend />
-                    <Line type="monotone" dataKey="fpr" stroke={COLORS[0]} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 4 }} />
+                    <Line
+                      type="monotone"
+                      dataKey="denialRate"
+                      stroke="#ff6f60"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 4 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -345,39 +377,45 @@ const FPRPage = () => {
 
           {/* Comparison Bar Chart */}
           <Grid item xs={12} md={4}>
-            <Card sx={chartCardStyle(COLORS[1])}>
+            <Card sx={chartCardStyle("#3e8ef7")}>
               <CardContent>
                 <Typography variant="h4" fontWeight={700} gutterBottom color={theme.palette.info.main}>
-                  FPR Comparison
+                  Denial Rate Comparison
                 </Typography>
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={comparisonFPR}>
+                  <BarChart data={comparisonDenialRate}>
                     <XAxis dataKey="period" stroke={theme.palette.text.secondary} />
-                    <YAxis domain={[0, 110]} tickFormatter={v => `${v}%`} stroke={theme.palette.text.secondary} />
-                    <RechartsTooltip formatter={v => `${v}%`} />
+                    <YAxis domain={[0, 110]} tickFormatter={(v) => `${v}%`} stroke={theme.palette.text.secondary} />
+                    <RechartsTooltip formatter={(v) => `${v}%`} />
                     <Legend />
-                    <Bar dataKey="fpr" fill={COLORS[1]} radius={[6, 6, 0, 0]} barSize={30} />
+                    <Bar dataKey="denialRate" fill="#3e8ef7" radius={[6, 6, 0, 0]} barSize={30} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Department-wise FPR Pie Chart */}
+          {/* Denial Reasons Pie Chart */}
           <Grid item xs={12} md={6}>
-            <Card sx={chartCardStyle(COLORS[2])}>
+            <Card sx={chartCardStyle("#f45b69")}>
               <CardContent>
-                <Typography variant="h4" fontWeight={700} gutterBottom color={theme.palette.warning.main}>
-                  Department-wise FPR
+                <Typography variant="h4" fontWeight={700} gutterBottom color={theme.palette.error.main}>
+                  Denial Reason Breakdown
                 </Typography>
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
-                    <Pie data={deptBreakdown} dataKey="fpr" nameKey="name" outerRadius={100} label={(entry) => `${entry.name}: ${entry.fpr}%`}>
-                      {deptBreakdown.map((_, i) => (
+                    <Pie
+                      data={denialReasons}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={100}
+                      label={(entry) => `${entry.name}: ${entry.value}`}
+                    >
+                      {denialReasons.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
-                    <RechartsTooltip formatter={v => `${v}%`} />
+                    <RechartsTooltip />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -385,27 +423,24 @@ const FPRPage = () => {
           </Grid>
         </Grid>
 
-        {/* Claim Level Details Table */}
+        {/* Add some margin above the table */}
         <Grid item xs={12} sx={{ mt: 4 }}>
-          <Card sx={chartCardStyle(COLORS[3])}>
+          <Card sx={chartCardStyle("#8e44ad")}>
             <CardContent>
               <Typography variant="h6" fontWeight={700} gutterBottom color={theme.palette.primary.main}>
-                Claim Level Details
+                Claims Details
               </Typography>
               <Box sx={{ height: 400 }}>
                 <DataGrid
                   rows={claims}
                   columns={[
                     { field: "id", headerName: "Claim ID", width: 100 },
-                    { field: "dateOfService", headerName: "DOS", width: 120 },
-                    { field: "status", headerName: "Status", width: 120 },
-                    { field: "firstPass", headerName: "First Pass", width: 120 },
-                    { field: "dept", headerName: "Dept", width: 100 },
+                    { field: "dateOfService", headerName: "Date of Service", width: 130 },
+                    { field: "status", headerName: "Status", width: 110 },
+                    { field: "denialReason", headerName: "Denial Reason", width: 180 },
                     { field: "payer", headerName: "Payer", width: 140 },
                     { field: "provider", headerName: "Provider", width: 140 },
                     { field: "client", headerName: "Client", width: 140 },
-                    { field: "adjustmentReason", headerName: "Adjustment Reason", width: 180 },
-                    { field: "denialReason", headerName: "Denial Reason", width: 160 },
                     { field: "appealStatus", headerName: "Appeal Status", width: 140 },
                   ]}
                   pageSize={6}
@@ -422,4 +457,4 @@ const FPRPage = () => {
   );
 };
 
-export default FPRPage;
+export default DenialRatePage;
