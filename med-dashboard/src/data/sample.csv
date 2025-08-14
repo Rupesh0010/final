@@ -1,16 +1,16 @@
 ClaimID,AmountBilled,AmountPaid,AmountAllowed,Status,FirstPassResolution,DateOfService,DateOfEntry,DateBilled,RVUs,Charges,Dept,DenialReason,AppealStatus,AdjustmentReason,Payer,Provider,Client
-1,1000,800,900,Paid,Yes,2025-07-05,2025-07-07,2025-07-08,10,1200,dr.a,,Approved,Contractual Write-off,Insurance A,Dr. Alice,Client Group 1
-2,1200,0,0,Denied,No,2025-07-10,2025-07-12,2025-07-13,12,1400,dr.b,Incorrect coding,Pending,N/A,Insurance B,Dr. Bob,Client Group 2
-3,800,600,700,Paid,Yes,2025-07-15,2025-07-16,2025-07-18,8,950,dr.c,,Approved,Patient Copay Applied,Insurance C,Dr. Carol,Client Group 1
-4,1500,0,0,Denied,No,2025-07-20,2025-07-21,2025-07-22,15,1700,dr.d,Duplicate claim,Rejected,N/A,Insurance A,Dr. Dan,Client Group 3
-5,900,900,900,Paid,Yes,2025-07-25,2025-07-27,2025-07-28,9,1100,dr.e,,Approved,Prompt Pay Discount,Insurance D,Dr. Eve,Client Group 2
-6,1100,850,950,Paid,Yes,2025-06-02,2025-06-05,2025-06-07,11,1250,dr.a,,Approved,Contractual Write-off,Insurance E,Dr. Alice,Client Group 1
-7,950,700,800,Paid,No,2025-06-06,2025-06-09,2025-06-10,7,1000,dr.b,Underpayment,Pending,Underpayment Adjustment,Insurance A,Dr. Bob,Client Group 2
-8,1350,0,0,Denied,No,2025-06-09,2025-06-13,2025-06-14,13,1500,dr.c,Late submission,Rejected,N/A,Insurance B,Dr. Carol,Client Group 1
-9,1000,1000,1000,Paid,Yes,2025-06-15,2025-06-16,2025-06-17,10,1150,dr.d,,Approved,None,Insurance A,Dr. Dan,Client Group 3
-10,1250,900,1100,Paid,Yes,2025-06-18,2025-06-20,2025-06-21,12,1400,dr.e,,Approved,Contractual Write-off,Insurance C,Dr. Eve,Client Group 1
-11,1400,0,0,Denied,No,2025-05-01,2025-05-03,2025-05-04,14,1600,dr.a,Benefit maximum reached,Rejected,N/A,Insurance D,Dr. Alice,Client Group 1
-12,900,800,850,Paid,Yes,2025-05-05,2025-05-06,2025-05-07,9,1000,dr.b,,Approved,Patient Copay Applied,Insurance E,Dr. Bob,Client Group 2
-13,1150,750,900,Paid,No,2025-05-10,2025-05-12,2025-05-13,11,1300,dr.c,Underpayment,Pending,Underpayment Adjustment,Insurance A,Dr. Carol,Client Group 1
-14,1300,1300,1300,Paid,Yes,2025-05-15,2025-05-16,2025-05-17,13,1450,dr.d,,Approved,None,Insurance B,Dr. Dan,Client Group 3
-15,975,0,0,Denied,No,2025-05-20,2025-05-22,2025-05-23,8,1100,dr.e,Incorrect coding,Pending,N/A,Insurance C,Dr. Eve,Client Group 2
+1,1000,800,900,Paid,Yes,2025-07-05,2025-07-07,2025-07-08,10,1200,"dr.a",,Approved,Contractual Write-off,Insurance A,Dr. Alice,"Client Group 1"
+2,1200,0,0,Denied,No,2025-07-10,2025-07-12,2025-07-13,12,1400,"dr.b","Incorrect coding",Pending,N/A,Insurance B,Dr. Bob,"Client Group 2"
+3,800,600,700,Paid,Yes,2025-07-15,2025-07-16,2025-07-18,8,950,"dr.c",,Approved,Patient Copay Applied,Insurance C,Dr. Carol,"Client Group 1"
+4,1500,0,0,Denied,No,2025-07-20,2025-07-21,2025-07-22,15,1700,"dr.d","Duplicate claim",Rejected,N/A,Insurance A,Dr. Dan,"Client Group 3"
+5,900,900,900,Paid,Yes,2025-07-25,2025-07-27,2025-07-28,9,1100,"dr.e",,Approved,Prompt Pay Discount,Insurance D,Dr. Eve,"Client Group 2"
+6,1100,850,950,Paid,Yes,2025-06-02,2025-06-05,2025-06-07,11,1250,"dr.a",,Approved,Contractual Write-off,Insurance E,Dr. Alice,"Client Group 1"
+7,950,700,800,Paid,No,2025-06-06,2025-06-09,2025-06-10,7,1000,"dr.b","Underpayment",Pending,Underpayment Adjustment,Insurance A,Dr. Bob,"Client Group 2"
+8,1350,0,0,Denied,No,2025-06-09,2025-06-13,2025-06-14,13,1500,"dr.c","Late submission",Rejected,N/A,Insurance B,Dr. Carol,"Client Group 1"
+9,1000,1000,1000,Paid,Yes,2025-06-15,2025-06-16,2025-06-17,10,1150,"dr.d",,Approved,None,Insurance A,Dr. Dan,"Client Group 3"
+10,1250,900,1100,Paid,Yes,2025-06-18,2025-06-20,2025-06-21,12,1400,"dr.e",,Approved,Contractual Write-off,Insurance C,Dr. Eve,"Client Group 1"
+11,1400,0,0,Denied,No,2025-05-01,2025-05-03,2025-05-04,14,1600,"dr.a","Benefit maximum reached",Rejected,N/A,Insurance D,Dr. Alice,"Client Group 1"
+12,900,800,850,Paid,Yes,2025-05-05,2025-05-06,2025-05-07,9,1000,"dr.b",,Approved,Patient Copay Applied,Insurance E,Dr. Bob,"Client Group 2"
+13,1150,750,900,Paid,No,2025-05-10,2025-05-12,2025-05-13,11,1300,"dr.c","Underpayment",Pending,Underpayment Adjustment,Insurance A,Dr. Carol,"Client Group 1"
+14,1300,1300,1300,Paid,Yes,2025-05-15,2025-05-16,2025-05-17,13,1450,"dr.d",,Approved,None,Insurance B,Dr. Dan,"Client Group 3"
+15,975,0,0,Denied,No,2025-05-20,2025-05-22,2025-05-23,8,1100,"dr.e","Incorrect coding",Pending,N/A,Insurance C,Dr. Eve,"Client Group 2"

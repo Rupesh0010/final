@@ -1,4 +1,3 @@
-// Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
@@ -9,7 +8,6 @@ import {
   ListItemIcon, ListItemText, AppBar, Toolbar, Button,
   TextField, MenuItem
 } from "@mui/material";
-
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
@@ -23,10 +21,9 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-
 import csvData from "../data/sample.csv?raw";
 
-// ✅ Updated metricCards with routeKey that matches your KPI pages
+// KPI cards
 const metricCards = [
   { label: "Gross Collection Rate", routeKey: "gcr", dataKey: "gcr", icon: <AssessmentIcon />, color: "#3e8ef7", isPercent: true, showTrend: true },
   { label: "Denial Rate", routeKey: "denial-rate", dataKey: "denialRate", icon: <MoneyOffIcon />, color: "#ff6f60", isPercent: true, showTrend: true },
@@ -41,7 +38,6 @@ const metricCards = [
   { label: "AR > 90 days", routeKey: "ar-90-days", dataKey: "ar90", icon: <AttachMoneyIcon />, color: "#d9534f", isCurrency: true, showTrend: true }
 ];
 
-// Helpers
 const initMetrics = () => ({
   totalClaims: 0,
   totalPayments: 0,
@@ -97,11 +93,10 @@ const Dashboard = () => {
           if (filters.doctor && !row.DoctorName?.toLowerCase().includes(filters.doctor.toLowerCase())) {
             continue;
           }
-
           const dos = dayjs(row.DateOfService);
           if (!dos.isValid()) continue;
-
           const diff = today.diff(dos, "day");
+
           let target = null;
           if (diff <= daysLimit) target = recent;
           else if (diff <= daysLimit * 2) target = past;
@@ -128,10 +123,12 @@ const Dashboard = () => {
         const recFinal = finalizeMetrics(recent);
         const pastFinal = finalizeMetrics(past);
         const allMetrics = {};
+
         for (let k in recFinal) {
           allMetrics[k] = recFinal[k];
           allMetrics[`${k}Change`] = recFinal[k] - (pastFinal[k] ?? 0);
         }
+
         setMetrics(allMetrics);
       }
     });
@@ -232,7 +229,7 @@ const Dashboard = () => {
                     cursor: "pointer",
                     "&:hover": { transform: "scale(1.03)", boxShadow: `0 8px 24px ${card.color}33` }
                   }}
-                  onClick={() => navigate(`/${card.routeKey}`)} // ✅ navigate using routeKey
+                  onClick={() => navigate(`/${card.routeKey}`)}
                 >
                   <Box display="flex" alignItems="center" gap={1}>
                     <Avatar sx={{ bgcolor: card.color }}>{card.icon}</Avatar>
