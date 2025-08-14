@@ -1,3 +1,4 @@
+// Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
@@ -23,7 +24,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import csvData from "../data/sample.csv?raw";
 
-// KPI cards
+// KPI configuration
 const metricCards = [
   { label: "Gross Collection Rate", routeKey: "gcr", dataKey: "gcr", icon: <AssessmentIcon />, color: "#3e8ef7", isPercent: true, showTrend: true },
   { label: "Denial Rate", routeKey: "denial-rate", dataKey: "denialRate", icon: <MoneyOffIcon />, color: "#ff6f60", isPercent: true, showTrend: true },
@@ -38,6 +39,7 @@ const metricCards = [
   { label: "AR > 90 days", routeKey: "ar-90-days", dataKey: "ar90", icon: <AttachMoneyIcon />, color: "#d9534f", isCurrency: true, showTrend: true }
 ];
 
+// Initialize metrics
 const initMetrics = () => ({
   totalClaims: 0,
   totalPayments: 0,
@@ -50,6 +52,7 @@ const initMetrics = () => ({
   ar90: 0
 });
 
+// Calculate final metrics
 const finalizeMetrics = (m) => {
   const gcr = m.totalBilled ? (m.totalPayments / m.totalBilled) * 100 : 0;
   const denialRate = m.totalClaims ? (m.deniedClaims / m.totalClaims) * 100 : 0;
@@ -90,9 +93,7 @@ const Dashboard = () => {
         let past = initMetrics();
 
         for (let row of data) {
-          if (filters.doctor && !row.DoctorName?.toLowerCase().includes(filters.doctor.toLowerCase())) {
-            continue;
-          }
+          if (filters.doctor && !row.DoctorName?.toLowerCase().includes(filters.doctor.toLowerCase())) continue;
           const dos = dayjs(row.DateOfService);
           if (!dos.isValid()) continue;
           const diff = today.diff(dos, "day");
@@ -123,12 +124,10 @@ const Dashboard = () => {
         const recFinal = finalizeMetrics(recent);
         const pastFinal = finalizeMetrics(past);
         const allMetrics = {};
-
         for (let k in recFinal) {
           allMetrics[k] = recFinal[k];
           allMetrics[`${k}Change`] = recFinal[k] - (pastFinal[k] ?? 0);
         }
-
         setMetrics(allMetrics);
       }
     });
@@ -160,7 +159,7 @@ const Dashboard = () => {
   };
 
   return (
-    <Box sx={{ display: "flex", backgroundColor: "#f5f7fa", minHeight: "100vh" }}>
+    <Box sx={{ display: "flex", backgroundColor: "#f4f6f8", minHeight: "100vh" }}>
       {/* Sidebar */}
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box sx={{ width: 240, mt: 2 }}>
@@ -197,8 +196,8 @@ const Dashboard = () => {
         </AppBar>
 
         {/* Filters */}
-        <Box sx={{ p: 2, backgroundColor: "#fff", display: "flex", gap: 2 }}>
-          <TextField select size="small" label="Date Range (days)" value={filters.dateRange}
+        <Box sx={{ p: 2, backgroundColor: "#fff", display: "flex", gap: 2, borderRadius: 2, mx: 2, mt: 2 }}>
+          <TextField select size="small" label="Date Range" value={filters.dateRange}
             onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}>
             <MenuItem value="30">Last 30 days</MenuItem>
             <MenuItem value="60">Last 60 days</MenuItem>
@@ -206,13 +205,17 @@ const Dashboard = () => {
           </TextField>
           <TextField size="small" label="Doctor / Provider" value={filters.doctor}
             onChange={(e) => setFilters({ ...filters, doctor: e.target.value })} placeholder="All" />
-          <Button variant="contained">Apply</Button>
+          <Button variant="contained" sx={{ bgcolor: "#3e8ef7" }}>Apply</Button>
         </Box>
 
         {/* Banner */}
-        <Box sx={{ m: 2, p: 3, textAlign: 'center', background: "linear-gradient(100deg, #3e8ef7 0%, #00b8a9 100%)", color: "#fff", borderRadius: 3 }}>
+        <Box sx={{
+          m: 2, p: 3, textAlign: 'center',
+          background: "linear-gradient(100deg, #3e8ef7, #00b8a9)",
+          color: "#fff", borderRadius: 3, boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
+        }}>
           <Typography variant="h4" fontWeight={700}>Revenue. Cycle. Excellence.</Typography>
-          <Typography>Fast, actionable RCM metrics for your team</Typography>
+          <Typography variant="body1">Fast, actionable RCM metrics for your team</Typography>
         </Box>
 
         {/* Metrics */}
@@ -223,17 +226,17 @@ const Dashboard = () => {
                 <Card
                   sx={{
                     px: 3, py: 2, borderRadius: 4,
-                    background: `linear-gradient(120deg, ${card.color}15 0%, #fff 100%)`,
+                    background: `linear-gradient(120deg, ${card.color}15, #fff)`,
                     borderLeft: `6px solid ${card.color}`,
-                    transition: "transform .15s",
+                    transition: "transform .2s ease",
                     cursor: "pointer",
-                    "&:hover": { transform: "scale(1.03)", boxShadow: `0 8px 24px ${card.color}33` }
+                    "&:hover": { transform: "translateY(-5px)", boxShadow: `0 8px 24px ${card.color}33` }
                   }}
                   onClick={() => navigate(`/${card.routeKey}`)}
                 >
                   <Box display="flex" alignItems="center" gap={1}>
-                    <Avatar sx={{ bgcolor: card.color }}>{card.icon}</Avatar>
-                    <Typography fontWeight={700}>{card.label}</Typography>
+                    <Avatar sx={{ bgcolor: card.color, width: 40, height: 40 }}>{card.icon}</Avatar>
+                    <Typography fontWeight={700} fontSize={14}>{card.label}</Typography>
                   </Box>
                   <Divider sx={{ my: 1 }} />
                   <Typography variant="h4" fontWeight={700}>
